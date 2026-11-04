@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { NormalizedTransaction } from '../types';
-import { Search, Filter, AlertCircle, CheckCircle, X, Tag } from 'lucide-react';
+import { Search, Filter, AlertCircle, CheckCircle, X, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { updateTransactionCategory } from '../lib/api';
+import { getCurrencySymbol } from '../lib/currency';
 
 interface TransactionTableProps {
   statementId: string;
@@ -48,8 +49,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
   const [onlyNeedsReview, setOnlyNeedsReview] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<NormalizedTransaction | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
 
-  const currSymbol = currency === 'GBP' ? '£' : '$';
+  const currSymbol = getCurrencySymbol(currency);
 
   const handleCategoryChange = async (txnId: string, newCategory: string) => {
     setUpdatingId(txnId);
@@ -95,6 +98,13 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
     return true;
   });
 
+  // Client-side pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginatedTransactions = filtered.slice(startIndex, endIndex);
+
   return (
     <div className="space-y-4">
       {/* Filter and Search Bar */}
@@ -106,7 +116,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             type="text"
             placeholder="Search merchants, narrations, references..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#2E2C8F] focus:outline-hidden"
           />
         </div>
@@ -117,7 +130,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
           <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200 text-xs font-semibold">
             <button
               type="button"
-              onClick={() => setDirectionFilter('ALL')}
+              onClick={() => {
+                setDirectionFilter('ALL');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1 rounded-lg transition ${
                 directionFilter === 'ALL'
                   ? 'bg-white text-[#1B1637] shadow-2xs'
@@ -128,7 +144,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setDirectionFilter('DEBIT')}
+              onClick={() => {
+                setDirectionFilter('DEBIT');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1 rounded-lg transition ${
                 directionFilter === 'DEBIT'
                   ? 'bg-white text-[#B42318] shadow-2xs'
@@ -139,7 +158,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setDirectionFilter('CREDIT')}
+              onClick={() => {
+                setDirectionFilter('CREDIT');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1 rounded-lg transition ${
                 directionFilter === 'CREDIT'
                   ? 'bg-white text-[#137A3F] shadow-2xs'
@@ -155,7 +177,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             <Filter className="w-3.5 h-3.5 text-[#5B5875]" />
             <select
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setCurrentPage(1);
+              }}
               className="text-xs border border-slate-300 rounded-xl px-3 py-1.5 bg-white focus:ring-2 focus:ring-[#2E2C8F] focus:outline-hidden"
             >
               <option value="ALL">All Categories</option>
@@ -172,7 +197,10 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             <input
               type="checkbox"
               checked={onlyNeedsReview}
-              onChange={(e) => setOnlyNeedsReview(e.target.checked)}
+              onChange={(e) => {
+                setOnlyNeedsReview(e.target.checked);
+                setCurrentPage(1);
+              }}
               className="rounded text-[#2E2C8F] focus:ring-[#2E2C8F]"
             />
             <span>Needs Review</span>
@@ -203,7 +231,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                   </td>
                 </tr>
               ) : (
-                filtered.map((txn) => {
+                paginatedTransactions.map((txn) => {
                   const hasWarning =
                     txn.flags.includes('BALANCE_MISMATCH') ||
                     txn.flags.includes('LOW_CONFIDENCE');
@@ -333,6 +361,79 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Client-Side Pagination Toolbar */}
+        {filtered.length > 0 && (
+          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#5B5875]">
+            <div className="flex items-center space-x-2">
+              <span>
+                Showing <strong className="text-[#1B1637]">{startIndex + 1}</strong>–<strong className="text-[#1B1637]">{endIndex}</strong> of{' '}
+                <strong className="text-[#1B1637]">{filtered.length}</strong> transactions
+              </span>
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center space-x-1.5">
+                <span>Per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs font-semibold text-[#1B1637] focus:ring-1 focus:ring-[#2E2C8F]"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={500}>500</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={safePage <= 1}
+                title="First Page"
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none text-slate-600"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                title="Previous Page"
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none text-slate-600"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <span className="px-3 py-1 font-semibold text-[#1B1637] select-none">
+                Page {safePage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                title="Next Page"
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none text-slate-600"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safePage >= totalPages}
+                title="Last Page"
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none text-slate-600"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Row Detail Drawer (Slide-Over Panel) */}

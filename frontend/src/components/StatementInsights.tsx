@@ -1,5 +1,6 @@
 import React from 'react';
 import type { NormalizedTransaction, ReconciliationSummary } from '../types';
+import { getCurrencySymbol } from '../lib/currency';
 import { PieChart } from 'lucide-react';
 
 interface StatementInsightsProps {
@@ -13,6 +14,7 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
   recon,
   currency = 'AUD',
 }) => {
+  const currSymbol = getCurrencySymbol(currency);
   const parseNum = (val: unknown): number => {
     if (typeof val === 'number') return isNaN(val) ? 0 : val;
     if (!val) return 0;
@@ -61,7 +63,7 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
         <div className="bg-white rounded-xl border border-[#E4E2EC] p-5 shadow-2xs">
           <p className="text-[11px] font-bold uppercase tracking-wider text-[#5B5875]">Largest Debit</p>
           <p className="text-2xl font-bold text-[#B42318] mt-1 tabular-nums">
-            −{currency === 'GBP' ? '£' : '$'}{maxDebit.toFixed(2)}
+            −{currSymbol}{maxDebit.toFixed(2)}
           </p>
           <p className="text-xs text-[#5B5875] mt-1">Single highest outflow</p>
         </div>
@@ -69,7 +71,7 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
         <div className="bg-white rounded-xl border border-[#E4E2EC] p-5 shadow-2xs">
           <p className="text-[11px] font-bold uppercase tracking-wider text-[#5B5875]">Average Expense</p>
           <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
-            {currency === 'GBP' ? '£' : '$'}{avgDebit.toFixed(2)}
+            {currSymbol}{avgDebit.toFixed(2)}
           </p>
           <p className="text-xs text-[#5B5875] mt-1">Across {debits.length} debit transactions</p>
         </div>
@@ -80,7 +82,7 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
             parseFloat(recon.net_movement) >= 0 ? 'text-[#137A3F]' : 'text-[#B42318]'
           }`}>
             {parseFloat(recon.net_movement) >= 0 ? '+' : '−'}
-            {currency === 'GBP' ? '£' : '$'}{Math.abs(parseFloat(recon.net_movement)).toFixed(2)}
+            {currSymbol}{Math.abs(parseFloat(recon.net_movement)).toFixed(2)}
           </p>
           <p className="text-xs text-[#5B5875] mt-1">Credits minus debits</p>
         </div>
@@ -132,12 +134,12 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
                   <div className="flex items-center space-x-3 tabular-nums font-semibold">
                     {stat.totalDebit > 0 && (
                       <span className="text-[#B42318]">
-                        −{currency === 'GBP' ? '£' : '$'}{stat.totalDebit.toFixed(2)}
+                        −{currSymbol}{stat.totalDebit.toFixed(2)}
                       </span>
                     )}
                     {stat.totalCredit > 0 && (
                       <span className="text-[#137A3F]">
-                        +{currency === 'GBP' ? '£' : '$'}{stat.totalCredit.toFixed(2)}
+                        +{currSymbol}{stat.totalCredit.toFixed(2)}
                       </span>
                     )}
                     <span className="text-slate-400 font-mono w-10 text-right">

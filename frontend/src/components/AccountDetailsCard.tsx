@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { StatementMetadata } from '../types';
+import { getCurrencySymbol } from '../lib/currency';
 import { Building2, Eye, EyeOff, Calendar, Hash, CreditCard, DollarSign } from 'lucide-react';
 
 interface AccountDetailsCardProps {
@@ -16,8 +17,11 @@ export const AccountDetailsCard: React.FC<AccountDetailsCardProps> = ({
   const bankName = metadata?.bank_name || 'Generic Bank Account';
   const rawAccNo = metadata?.account_number || '12345678';
   const sortCodeOrBsb = metadata?.sort_code_or_bsb || '062-000';
-  const idType = metadata?.account_identifier_type || (defaultCurrency === 'GBP' ? 'Sort Code' : 'BSB');
+  const idType =
+    metadata?.account_identifier_type ||
+    (defaultCurrency === 'GBP' ? 'Sort Code' : defaultCurrency === 'INR' ? 'IFSC' : 'BSB');
   const currency = metadata?.currency || defaultCurrency;
+  const currSymbol = getCurrencySymbol(currency);
   const period =
     metadata?.statement_period_start && metadata?.statement_period_end
       ? `${metadata.statement_period_start} — ${metadata.statement_period_end}`
@@ -115,7 +119,7 @@ export const AccountDetailsCard: React.FC<AccountDetailsCardProps> = ({
             <div>
               <span className="text-[#5B5875]">Opening Balance: </span>
               <span className="font-bold tabular-nums text-slate-800">
-                ${metadata.opening_balance}
+                {currSymbol}{metadata.opening_balance}
               </span>
             </div>
           )}
@@ -123,7 +127,7 @@ export const AccountDetailsCard: React.FC<AccountDetailsCardProps> = ({
             <div>
               <span className="text-[#5B5875]">Closing Balance: </span>
               <span className="font-bold tabular-nums text-slate-800">
-                ${metadata.closing_balance}
+                {currSymbol}{metadata.closing_balance}
               </span>
             </div>
           )}

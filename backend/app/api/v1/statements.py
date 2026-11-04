@@ -69,18 +69,27 @@ def execute_pipeline(
     # 2. Page-level PDF type detection
     doc_report = detect_document_type(working_path)
 
-    # 3. Word extraction (Native text for digital pages, OCR for scanned pages)
+    # 3. Word extraction (Batch native text for digital pages in a single file open, OCR for scanned pages)
     all_words: List[Word] = []
-    for page_metric in doc_report.pages:
-        p_num = page_metric.page_number
-        if page_metric.page_type == PageType.DIGITAL:
-            page_words = extract_native_words_from_document(
-                working_path, pages_to_extract=[p_num]
-            )
-            all_words.extend(page_words)
-        else:
-            ocr_words = default_ocr_engine.ocr_page(working_path, p_num)
-            all_words.extend(ocr_words)
+    digital_page_nums = [
+        p.page_number for p in doc_report.pages if p.page_type == PageType.DIGITAL
+    ]
+    scanned_page_nums = [
+        p.page_number for p in doc_report.pages if p.page_type != PageType.DIGITAL
+    ]
+
+    if digital_page_nums:
+        # Single file open for all digital pages (avoids O(N^2) open calls)
+        native_words = extract_native_words_from_document(
+            working_path, pages_to_extract=digital_page_nums
+        )
+        all_words.extend(native_words)
+
+    for p_num in scanned_page_nums:
+        ocr_words = default_ocr_engine.ocr_page(working_path, p_num)
+        all_words.extend(ocr_words)
+
+    all_words.sort(key=lambda w: (w.page_number, w.y0, w.x0))
 
     # 4. Line clustering & Table header detection
     lines = cluster_words_into_lines(all_words)

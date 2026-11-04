@@ -49,6 +49,9 @@ def extract_metadata_from_text(raw_text: str) -> StatementMetadata:
     elif "STATE BANK OF INDIA" in text_upper or "SBI" in text_upper:
         meta.bank_name = "State Bank of India"
         meta.currency = "INR"
+    elif "BANK OF INDIA" in text_upper or "BOI" in text_upper:
+        meta.bank_name = "Bank of India"
+        meta.currency = "INR"
     else:
         # Generic institution detection (e.g. "Southern Cross Test Bank", "St. George Bank")
         bank_title_match = re.search(r'([A-Za-z\s]+(?:Bank|Building Society|Credit Union))', raw_text, re.IGNORECASE)
@@ -64,9 +67,15 @@ def extract_metadata_from_text(raw_text: str) -> StatementMetadata:
         meta.currency = "INR"
 
     # 2. Account identifiers
+    # Indian IFSC Code (e.g. IFSC: BKID0003323)
+    ifsc_match = re.search(r'IFSC[:\s]*([A-Z]{4}0[A-Z0-9]{6})', raw_text, re.IGNORECASE)
+    if ifsc_match:
+        meta.sort_code_or_bsb = ifsc_match.group(1).upper()
+        meta.account_identifier_type = "IFSC & Account"
+
     # Australian BSB + Account (e.g. 062-000 12345678 or BSB: 062-984)
     bsb_match = re.search(r'(?:BSB|ACCOUNT|A/C)[:\s]*([0-9]{3}[-\s][0-9]{3})\s*([0-9]{5,10})?', raw_text, re.IGNORECASE)
-    if bsb_match:
+    if bsb_match and not meta.sort_code_or_bsb:
         meta.sort_code_or_bsb = bsb_match.group(1).replace(" ", "-")
         meta.account_identifier_type = "BSB & Account"
         if bsb_match.group(2):
@@ -74,13 +83,18 @@ def extract_metadata_from_text(raw_text: str) -> StatementMetadata:
 
     # UK Sort Code + Account Number (e.g. Sort Code: 20-00-00   Account Number: 87654321)
     sort_match = re.search(r'Sort\s*Code[:\s]*([0-9]{2}[-\s][0-9]{2}[-\s][0-9]{2})', raw_text, re.IGNORECASE)
-    if sort_match:
+    if sort_match and not meta.sort_code_or_bsb:
         meta.sort_code_or_bsb = sort_match.group(1).replace(" ", "-")
         meta.account_identifier_type = "Sort Code & Account"
 
-    acc_num_match = re.search(r'Account\s*(?:Number|No|#)?[:\s]*((?:[*X\d]{2,6}\s*)?[0-9]{4,12})', raw_text, re.IGNORECASE)
+    acc_num_match = re.search(r'Account\s*(?:Number|number|No|#)?[:\s]*((?:[*X\d]{2,6}\s*)?[0-9]{4,18})', raw_text, re.IGNORECASE)
     if acc_num_match:
         meta.account_number = acc_num_match.group(1).strip()
+
+    # Account holder name
+    holder_match = re.search(r'(?:Account\s*holder\s*name|Account\s*Name)[:\s]*([A-Za-z\s]{3,50})', raw_text, re.IGNORECASE)
+    if holder_match and not meta.account_name:
+        meta.account_name = holder_match.group(1).strip()
 
     # 3. Period extraction
     period_slash_match = re.search(r'(?:period|statement period)[:\s]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})\s*[^0-9]+\s*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})', raw_text, re.IGNORECASE)

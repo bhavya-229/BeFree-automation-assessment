@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { StatementRecord } from '../types';
 import { getExportCsvUrl, getExportXlsxUrl } from '../lib/api';
+import { getCurrencySymbol } from '../lib/currency';
 import { Download, FileText, CheckCircle2, AlertTriangle, Layers, ListOrdered, BarChart3, Calculator } from 'lucide-react';
 import { AccountDetailsCard } from './AccountDetailsCard';
 import { TransactionTable } from './TransactionTable';
@@ -16,7 +17,7 @@ export const StatementOverview: React.FC<StatementOverviewProps> = ({ record }) 
 
   const { reconciliation_summary: recon, doc_type_report: docType, metadata } = record;
   const currency = metadata?.currency || 'AUD';
-  const currSymbol = currency === 'GBP' ? '£' : '$';
+  const currSymbol = getCurrencySymbol(currency);
 
   const isReconciled = recon.quality_score >= 90.0;
 

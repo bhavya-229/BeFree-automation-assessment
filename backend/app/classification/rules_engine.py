@@ -568,48 +568,50 @@ DEFAULT_RULES: List[ClassificationRule] = [
 
 
 class RuleEngine:
-    """Fast deterministic rule engine using negative guardrails and specificity scoring."""
+    """Fast deterministic rule engine using precompiled regexes, negative guardrails, and specificity scoring."""
 
     def __init__(self, rules: Optional[List[ClassificationRule]] = None):
         self.rules = sorted(rules or DEFAULT_RULES, key=lambda r: r.priority, reverse=True)
+        # Precompile regex patterns for maximum classification throughput
+        self._compiled_rules: List[Tuple[ClassificationRule, List[re.Pattern], List[Tuple[str, re.Pattern, int, int]]]] = []
+        for rule in self.rules:
+            compiled_excludes = [
+                re.compile(rf"(?<!\w){re.escape(ex)}(?!\w)") for ex in rule.exclude_keywords
+            ]
+            compiled_kws = [
+                (kw, re.compile(rf"(?<!\w){re.escape(kw)}(?!\w)"), len(kw.split()), len(kw))
+                for kw in rule.keywords
+            ]
+            self._compiled_rules.append((rule, compiled_excludes, compiled_kws))
 
     def classify(
         self, description: str, direction: str = "debit"
     ) -> Optional[Tuple[str, Optional[str], float, str, List[str]]]:
-        """Match description against rules with negative guardrails and specificity-weighted ranking."""
+        """Match description against precompiled rules with negative guardrails and specificity ranking."""
         upper_desc = description.upper()
 
         candidates: List[Tuple[float, ClassificationRule, List[str]]] = []
 
-        for rule in self.rules:
+        for rule, compiled_excludes, compiled_kws in self._compiled_rules:
             # Check direction constraint if specified
             if rule.direction != "both" and direction != "both":
                 if rule.direction != direction:
                     continue
 
             # Check negative exclusion keywords first
-            excluded = False
-            for ex_kw in rule.exclude_keywords:
-                escaped_ex = re.escape(ex_kw)
-                if re.search(rf"(?<!\w){escaped_ex}(?!\w)", upper_desc):
-                    excluded = True
-                    break
-            if excluded:
+            if any(pat.search(upper_desc) for pat in compiled_excludes):
                 continue
 
             matched_keywords: List[str] = []
             max_kw_len = 0
             max_kw_words = 0
 
-            for kw in rule.keywords:
-                escaped = re.escape(kw)
-                pattern = rf"(?<!\w){escaped}(?!\w)"
-                if re.search(pattern, upper_desc):
+            for kw, pat, w_count, k_len in compiled_kws:
+                if pat.search(upper_desc):
                     matched_keywords.append(kw)
-                    w_count = len(kw.split())
-                    if w_count > max_kw_words or (w_count == max_kw_words and len(kw) > max_kw_len):
+                    if w_count > max_kw_words or (w_count == max_kw_words and k_len > max_kw_len):
                         max_kw_words = w_count
-                        max_kw_len = len(kw)
+                        max_kw_len = k_len
 
             if matched_keywords:
                 # Specificity score = (priority * 100) + (word_count * 20) + char_length
