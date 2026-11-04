@@ -34,6 +34,12 @@ async def processing_error_handler(request: Request, exc: ProcessingError):
     )
 
 
+@app.get("/", tags=["Health"])
+async def root():
+    """Root endpoint for status probe and health checks."""
+    return {"status": "ok", "project": settings.PROJECT_NAME, "docs": "/api/docs"}
+
+
 @app.get("/api/v1/health", tags=["Health"])
 async def health_check():
     """Health check endpoint."""
