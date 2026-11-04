@@ -422,6 +422,148 @@ DEFAULT_RULES: List[ClassificationRule] = [
         priority=14,
         confidence=0.90,
     ),
+
+    # ─── India-specific rules ──────────────────────────────────────────────────
+
+    # UPI P2P credits (money received via UPI)
+    ClassificationRule(
+        rule_id="RULE_UPI_IN_01",
+        category="Transfers In",
+        subcategory="UPI Transfer",
+        keywords=["UPI/CR", "UPI//CR", "IMPS/CR", "NEFT/CR", "BHIM UPI", "OSKO RECEIVED"],
+        exclude_keywords=["AMAZON", "FLIPKART", "SWIGGY", "ZOMATO", "PAYTM MERCHANT", "MEESHO", "MYNTRA", "PHARMEASY"],
+        direction="credit",
+        priority=15,
+        confidence=0.88,
+    ),
+    # UPI P2P debits (money sent via UPI — generic/unclassified merchant)
+    ClassificationRule(
+        rule_id="RULE_UPI_OUT_01",
+        category="Transfers Out",
+        subcategory="UPI Transfer",
+        keywords=["UPI/DR", "UPI//DR", "IMPS/DR", "NEFT/DR"],
+        exclude_keywords=["AMAZON", "FLIPKART", "SWIGGY", "ZOMATO", "MEESHO", "MYNTRA", "PHARMEASY",
+                          "NACH", "BLINKIT", "BIGBASKET", "SMARTBUY", "ONEMONEY", "PHONEPAY"],
+        direction="debit",
+        priority=13,
+        confidence=0.75,
+    ),
+    # Amazon Pay (UPI debit to Amazon)
+    ClassificationRule(
+        rule_id="RULE_UPI_AMAZON_01",
+        category="Shopping & Retail",
+        subcategory="Online Marketplace",
+        keywords=["AMAZON", "AMAZONPAY", "AMAZON PAY"],
+        exclude_keywords=["PRIME", "AMAZON PRIME", "PRIME VIDEO", "PRIME SUBSCRIPTION"],
+        direction="debit",
+        priority=17,
+        confidence=0.95,
+    ),
+    # Flipkart (UPI debit to Flipkart)
+    ClassificationRule(
+        rule_id="RULE_UPI_FLIPKART_01",
+        category="Shopping & Retail",
+        subcategory="Online Marketplace",
+        keywords=["FLIPKART", "FLIPKA", "FLIPK"],
+        direction="debit",
+        priority=17,
+        confidence=0.95,
+    ),
+    # Meesho (online shopping)
+    ClassificationRule(
+        rule_id="RULE_UPI_MEESHO_01",
+        category="Shopping & Retail",
+        subcategory="Online Marketplace",
+        keywords=["MEESHO"],
+        direction="debit",
+        priority=17,
+        confidence=0.93,
+    ),
+    # Myntra (fashion)
+    ClassificationRule(
+        rule_id="RULE_UPI_MYNTRA_01",
+        category="Shopping & Retail",
+        subcategory="Fashion",
+        keywords=["MYNTRA"],
+        direction="debit",
+        priority=17,
+        confidence=0.93,
+    ),
+    # Swiggy / Zomato (food delivery)
+    ClassificationRule(
+        rule_id="RULE_UPI_FOOD_01",
+        category="Dining & Restaurants",
+        subcategory="Food Delivery",
+        keywords=["SWIGGY", "ZOMATO"],
+        direction="debit",
+        priority=17,
+        confidence=0.95,
+    ),
+    # Blinkit / BigBasket (grocery delivery)
+    ClassificationRule(
+        rule_id="RULE_UPI_GROC_IN_01",
+        category="Groceries",
+        subcategory="Online Grocery",
+        keywords=["BLINKIT", "BIGBASKET", "GROFER"],
+        direction="debit",
+        priority=17,
+        confidence=0.95,
+    ),
+    # PharmEasy / 1mg / Netmeds (pharmacy)
+    ClassificationRule(
+        rule_id="RULE_UPI_PHARMA_IN_01",
+        category="Healthcare & Pharmacy",
+        subcategory="Online Pharmacy",
+        keywords=["PHARMEASY", "PHARME", "1MG", "NETMEDS", "APOLLO PHARMACY", "MEDPLUS"],
+        direction="debit",
+        priority=17,
+        confidence=0.93,
+    ),
+    # NACH / SIP / Mutual Funds auto-debit
+    ClassificationRule(
+        rule_id="RULE_NACH_MF_01",
+        category="Investments & Wealth",
+        subcategory="Mutual Funds",
+        keywords=["NACH DR INW", "NIPPON IND MF", "NIPPON MF", "HDFC MF", "SBI MF",
+                  "ICICI PRU MF", "AXIS MF", "KOTAK MF", "MIRAE MF", "DSP MF",
+                  "PARAG PARIKH", "NAVI MF", "MOTILAL MF"],
+        direction="debit",
+        priority=18,
+        confidence=0.96,
+    ),
+    # NACH generic auto-debit (insurance, loan EMI etc.)
+    ClassificationRule(
+        rule_id="RULE_NACH_01",
+        category="Loan & Credit Payments",
+        subcategory="EMI Auto-debit",
+        keywords=["NACH DR", "NACH DEBIT", "ECS DR", "ECS DEBIT"],
+        exclude_keywords=["NIPPON MF", "HDFC MF", "SBI MF", "ICICI PRU MF", "AXIS MF",
+                          "KOTAK MF", "MIRAE MF", "INW"],
+        direction="debit",
+        priority=16,
+        confidence=0.88,
+    ),
+    # SmartBuy / Jio / Paytm merchant debits
+    ClassificationRule(
+        rule_id="RULE_UPI_RECHARGE_IN_01",
+        category="Utilities & Bills",
+        subcategory="Mobile Recharge",
+        keywords=["SMARTBUY", "JIOPAY", "JIO RECHARGE", "PAYTM RECHARGE", "PHONEPE RECHARGE",
+                  "ONEMONEY", "PHONEPAY"],
+        direction="debit",
+        priority=17,
+        confidence=0.90,
+    ),
+    # Flipkart refund (credit from Flipkart)
+    ClassificationRule(
+        rule_id="RULE_UPI_FLIPKART_REFUND_01",
+        category="Refunds & Cashbacks",
+        subcategory="Merchant Refund",
+        keywords=["FLIPKART", "FLIPKA"],
+        direction="credit",
+        priority=17,
+        confidence=0.93,
+    ),
 ]
 
 

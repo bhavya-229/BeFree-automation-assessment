@@ -19,9 +19,10 @@ class ColumnType(str, Enum):
     CREDIT = "credit"
     AMOUNT = "amount"
     BALANCE = "balance"
+    SERIAL = "serial"  # Serial / row-number column (India: Sr No) — data-less, ignored in parsing
 
 
-# Comprehensive synonym dictionary covering AU, UK, and generic banks
+# Comprehensive synonym dictionary covering AU, UK, IN, and generic banks
 COLUMN_SYNONYMS: Dict[ColumnType, List[str]] = {
     ColumnType.DATE: [
         "date", "txn date", "transaction date", "trans date", "booking date",
@@ -52,6 +53,10 @@ COLUMN_SYNONYMS: Dict[ColumnType, List[str]] = {
     ColumnType.BALANCE: [
         "balance", "running balance", "closing balance", "total balance",
         "account balance", "balance ($)", "balance (£)"
+    ],
+    ColumnType.SERIAL: [
+        "sr no", "sr.", "s no", "s.no", "sno", "serial no", "serial number",
+        "sl no", "sl.", "no.", "#"
     ],
 }
 

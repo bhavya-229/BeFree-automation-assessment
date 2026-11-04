@@ -60,7 +60,7 @@ def looks_like_date(text: str) -> bool:
 
 def looks_like_amount(text: str) -> bool:
     """Check if token looks like a currency amount (must contain digits and decimal/currency marker)."""
-    clean = re.sub(r"[£$€,]", "", text.strip()).rstrip("drDRcrCR+-()")
+    clean = re.sub(r"[£$€₹,\s]", "", text.strip()).rstrip("drDRcrCR+-()")
     if not clean:
         return False
     # Must contain at least one digit and a decimal point or currency indicator
@@ -156,11 +156,24 @@ def reconstruct_transaction_rows(
             continue
 
         assigned = assign_words_to_columns(line.words, header.columns)
-        date_words = assigned.get(ColumnType.DATE, [])
-        date_str = " ".join(w.text for w in date_words).strip()
 
-        first_word_text = line.words[0].text if line.words else ""
-        first_two_words = f"{line.words[0].text} {line.words[1].text}" if len(line.words) > 1 else ""
+        # Collect serial-number column texts so they are excluded from date detection
+        serial_words = assigned.get(ColumnType.SERIAL, [])
+        serial_texts: set = {w.text for w in serial_words}
+
+        date_words = assigned.get(ColumnType.DATE, [])
+        # Exclude serial-number tokens that may have landed in the Date column
+        date_words_filtered = [w for w in date_words if w.text not in serial_texts]
+        date_str = " ".join(w.text for w in date_words_filtered).strip()
+
+        # For first-word checks, skip over any leading serial-number token
+        non_serial_words = [w for w in line.words if w.text not in serial_texts]
+        first_word_text = non_serial_words[0].text if non_serial_words else ""
+        first_two_words = (
+            f"{non_serial_words[0].text} {non_serial_words[1].text}"
+            if len(non_serial_words) > 1
+            else ""
+        )
         starts_with_date = (
             looks_like_date(date_str)
             or looks_like_date(first_word_text)
@@ -189,7 +202,13 @@ def reconstruct_transaction_rows(
 
             for col_type, col_words in assigned.items():
                 for w in col_words:
-                    if w.text == matched_date or (matched_date.startswith(w.text) and w in date_words):
+                    # Skip serial number column entirely — it's metadata, not transaction data
+                    if col_type == ColumnType.SERIAL:
+                        continue
+                    # Skip the ₹ symbol word (currency prefix to balance amount)
+                    if w.text.strip() == "₹":
+                        continue
+                    if w.text == matched_date or (matched_date.startswith(w.text) and w in date_words_filtered):
                         continue
 
                     if col_type == ColumnType.DESCRIPTION:
@@ -240,6 +259,12 @@ def reconstruct_transaction_rows(
             if current_row:
                 desc_line_tokens: List[str] = []
                 for w in line.words:
+                    # Skip ₹ symbol in continuation lines (balance prefix)
+                    if w.text.strip() == "₹":
+                        continue
+                    # Skip serial-number tokens in continuation lines
+                    if w.text in serial_texts:
+                        continue
                     if w.x0 < min_amount_x:
                         # Left side of table -> unconditionally description
                         desc_line_tokens.append(w.text)
