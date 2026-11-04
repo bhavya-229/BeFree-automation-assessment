@@ -166,8 +166,36 @@ TRAINING_SAMPLES: List[Tuple[str, str, str]] = [
     ("ETSY CRAFTS ONLINE MARKET", "Shopping & Retail", "debit"),
     ("NIKE STORE SPORTS RETAIL", "Shopping & Retail", "debit"),
     ("SEPHORA BEAUTY STORE", "Shopping & Retail", "debit"),
-    ("COURSERA ONLINE LEARNING", "Shopping & Retail", "debit"),
-    ("UDEMY ONLINE COURSE EDUCATION", "Shopping & Retail", "debit"),
+    ("COURSERA ONLINE LEARNING", "Education & Childcare", "debit"),
+    ("UDEMY ONLINE COURSE EDUCATION", "Education & Childcare", "debit"),
+
+    # Taxes & Government (debit)
+    ("ATO TAX PAYMENT 2026", "Taxes & Government", "debit"),
+    ("HMRC SELF ASSESSMENT TAX", "Taxes & Government", "debit"),
+    ("CITY COUNCIL RATES PAYMENT", "Taxes & Government", "debit"),
+    ("STATE REVENUE OFFICE STAMP DUTY", "Taxes & Government", "debit"),
+
+    # Education & Childcare (debit)
+    ("SYDNEY UNIVERSITY TUITION FEES", "Education & Childcare", "debit"),
+    ("GRAMMAR SCHOOL TERM FEES", "Education & Childcare", "debit"),
+    ("LITTLE ANGELS DAYCARE CHILDCARE", "Education & Childcare", "debit"),
+    ("TAFE NSW COURSE ENROLMENT", "Education & Childcare", "debit"),
+
+    # Donations & Charity (debit)
+    ("RED CROSS AUSTRALIA DONATION", "Donations & Charity", "debit"),
+    ("SALVATION ARMY CHARITY GIFT", "Donations & Charity", "debit"),
+    ("UNICEF AUSTRALIA MONTHLY GIVING", "Donations & Charity", "debit"),
+
+    # Personal Care (debit)
+    ("BARBER SHOP HAIRCUT SYDNEY", "Personal Care", "debit"),
+    ("BEAUTY SALON FACIAL TREATMENT", "Personal Care", "debit"),
+    ("DAY SPA RELAXATION MASSAGE", "Personal Care", "debit"),
+
+    # Investments & Wealth (both)
+    ("VANGUARD DIVERSIFIED ETF", "Investments & Wealth", "debit"),
+    ("COMMSEC SHARE TRADING SETTLEMENT", "Investments & Wealth", "debit"),
+    ("STAKE BROKERAGE DEPOSIT", "Investments & Wealth", "debit"),
+    ("AUSTRALIAN SUPER SUPERANNUATION", "Investments & Wealth", "credit"),
 ]
 
 

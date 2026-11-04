@@ -42,7 +42,7 @@ categories:
   - id: rent_housing
     name: "Rent & Housing"
     direction: debit
-    subcategories: ["Rent", "Mortgage", "Maintenance"]
+    subcategories: ["Rent", "Lease", "Maintenance", "Strata"]
   - id: shopping
     name: "Shopping & Retail"
     direction: debit
@@ -62,7 +62,27 @@ categories:
   - id: loan_repayments
     name: "Loan & Credit Payments"
     direction: debit
-    subcategories: ["Personal Loan", "Credit Card Payment", "Car Loan"]
+    subcategories: ["Mortgage", "Personal Loan", "Credit Card Payment", "Car Loan"]
+  - id: taxes_government
+    name: "Taxes & Government"
+    direction: debit
+    subcategories: ["Income Tax", "Council Tax", "Fines", "Vehicle Registration", "Stamp Duty"]
+  - id: education
+    name: "Education & Childcare"
+    direction: debit
+    subcategories: ["University", "School Fees", "Tuition", "Daycare", "Courses"]
+  - id: donations
+    name: "Donations & Charity"
+    direction: debit
+    subcategories: ["Charity", "Religious", "Fundraising"]
+  - id: personal_care
+    name: "Personal Care"
+    direction: debit
+    subcategories: ["Hair & Beauty", "Spa & Wellness", "Cosmetics"]
+  - id: investments
+    name: "Investments & Wealth"
+    direction: both
+    subcategories: ["Shares & Brokerage", "Superannuation", "Crypto", "Managed Funds"]
   - id: entertainment
     name: "Entertainment & Subscriptions"
     direction: debit

@@ -33,8 +33,11 @@ MERCHANT_ALIASES = {
     "WOOLIES": "WOOLWORTHS",
     "WOOLWORTHS METRO": "WOOLWORTHS",
     "AMZN": "AMAZON",
-    "AMZN MKTP": "AMAZON",
-    "AMAZON PRIME": "AMAZON",
+    "AMZN MKTP": "AMAZON MARKETPLACE",
+    "AMAZON PRIME": "AMAZON PRIME SUBSCRIPTION",
+    "AMZN PRIME": "AMAZON PRIME SUBSCRIPTION",
+    "APPLE.COM/BILL": "APPLE DIGITAL SUBSCRIPTION",
+    "ITUNES.COM": "APPLE DIGITAL SUBSCRIPTION",
     "TFL": "TRANSPORT FOR LONDON",
     "TFL.GOV.UK": "TRANSPORT FOR LONDON",
     "TFL TRAVEL": "TRANSPORT FOR LONDON",
@@ -48,22 +51,41 @@ MERCHANT_ALIASES = {
     "SAINSBURY'S": "SAINSBURYS",
 }
 
+# Payment intermediary / gateway prefixes that wrap the real downstream merchant
+PROCESSOR_PATTERNS = [
+    (re.compile(r"^\s*PAYPAL\s*[*_\-]\s*", re.IGNORECASE), "PAYPAL"),
+    (re.compile(r"^\s*SQ\s*[*_\-]\s*", re.IGNORECASE), "SQUARE"),
+    (re.compile(r"^\s*SQUARE\s*[*_\-]\s*", re.IGNORECASE), "SQUARE"),
+    (re.compile(r"^\s*SP\s*[*_\-]\s*", re.IGNORECASE), "STRIPE"),
+    (re.compile(r"^\s*STRIPE\s*[*_\-]\s*", re.IGNORECASE), "STRIPE"),
+    (re.compile(r"^\s*KLARNA\s*[*_\-]\s*", re.IGNORECASE), "BNPL"),
+    (re.compile(r"^\s*AFTERPAY\s*[*_\-]\s*", re.IGNORECASE), "BNPL"),
+]
+
 
 def clean_description(raw_description: str) -> Tuple[str, Optional[str], Optional[str]]:
-    """Clean transaction description and extract payment rail channel and ref number."""
+    """Clean transaction description, strip payment processors, and extract payment rail channel and ref number."""
     if not raw_description:
         return "", None, None
 
     text = raw_description.strip()
 
-    # 1. Detect channel rail
+    # 1. Strip and detect payment processors / gateways (e.g. "PAYPAL * STEAM" -> "STEAM")
     detected_channel: Optional[str] = None
-    for ch_name, pattern in CHANNEL_PATTERNS.items():
-        if pattern.search(text):
+    for proc_pat, ch_name in PROCESSOR_PATTERNS:
+        if proc_pat.match(text):
             detected_channel = ch_name
+            text = proc_pat.sub("", text).strip()
             break
 
-    # 2. Extract reference numbers if present (e.g. "REF 123456", "AUTH 7890", "OSKO 998877")
+    # 2. Detect channel rail if not already set by gateway
+    if not detected_channel:
+        for ch_name, pattern in CHANNEL_PATTERNS.items():
+            if pattern.search(text):
+                detected_channel = ch_name
+                break
+
+    # 3. Extract reference numbers if present (e.g. "REF 123456", "AUTH 7890", "OSKO 998877")
     detected_ref: Optional[str] = None
     ref_match = re.search(r"\b(?:REF|REFERENCE|AUTH|RRN|NO|TXN)\s*[:#]?\s*([A-Za-z0-9_-]{4,20})\b", text, re.IGNORECASE)
     if ref_match:
@@ -71,27 +93,27 @@ def clean_description(raw_description: str) -> Tuple[str, Optional[str], Optiona
         # Remove the reference token from narrative text so it doesn't pollute classification
         text = text[:ref_match.start()] + " " + text[ref_match.end():]
 
-    # 3. Strip synthetic test artifacts, headers and watermarks
+    # 4. Strip synthetic test artifacts, headers and watermarks
     text = re.sub(r"SYNTHETIC (?:SAMPLE|TEST).*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"FOR SOFTWARE TESTING.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"TRANSACTION DESCRIPTION.*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"PAGE \d+.*", "", text, flags=re.IGNORECASE)
 
-    # 4. Strip OCR noise characters and trailing artifacts
+    # 5. Strip OCR noise characters and trailing artifacts
     text = re.sub(r"[=_—–|~]+", " ", text)
 
-    # 5. Strip card masks (e.g. "CARD ... 1234", "XXXX-XXXX-1234", "XXXXXXXXXXXX1234")
+    # 6. Strip card masks (e.g. "CARD ... 1234", "XXXX-XXXX-1234", "XXXXXXXXXXXX1234")
     text = re.sub(r"\b(?:CARD\s+)?(?:\d{4}|\*{4}|X{4})[- ]?(?:\d{4}|\*{4}|X{4})[- ]?(?:\d{4}|\*{4}|X{4})[- ]?(\d{4})\b", r"CARD \1", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:\*{4,}|X{4,})\d{4}\b", "", text, flags=re.IGNORECASE)
 
-    # 6. Strip long timestamps / transaction IDs (sequences of 8+ digits)
+    # 7. Strip long timestamps / transaction IDs (sequences of 8+ digits)
     text = re.sub(r"\b\d{8,}\b", "", text)
 
-    # 7. Normalize whitespace, trim leading/trailing dashes and uppercase
+    # 8. Normalize whitespace, trim leading/trailing dashes and uppercase
     text = re.sub(r"\s+", " ", text).strip()
     text = re.sub(r"^[-–—\s]+|[-–—\s]+$", "", text).strip().upper()
 
-    # 8. Apply merchant aliases
+    # 9. Apply merchant aliases
     for alias, canonical in MERCHANT_ALIASES.items():
         if alias in text:
             text = text.replace(alias, canonical)

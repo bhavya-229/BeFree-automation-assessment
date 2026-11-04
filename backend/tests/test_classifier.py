@@ -123,3 +123,117 @@ def test_classification_benchmark_evaluation():
     assert "accuracy" in metrics["hybrid"]
     assert "macro_f1" in metrics["hybrid"]
     assert "coverage_at_threshold" in metrics
+
+
+def test_adversarial_precision_and_negative_matching():
+    """Verify substring collisions, negative keyword exclusions, processor routing, and specificity arbitration."""
+    # 1. Substring Collision Defense
+    # CURRENT ACCOUNT must not trigger RENT
+    t_rent_neg = NormalizedTransaction(
+        id="t1", line_number=1, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="CURRENT ACCOUNT MONTHLY FEE", description_raw="CURRENT ACCOUNT MONTHLY FEE", debit=Decimal("10.00")
+    )
+    c_rent_neg = default_hybrid_classifier.classify_transaction(t_rent_neg)
+    assert c_rent_neg.category != "Rent & Housing"
+    assert c_rent_neg.category == "Fees & Charges"
+
+    # OPTUS MOBILE must not trigger MOBIL fuel rule
+    t_fuel_neg = NormalizedTransaction(
+        id="t2", line_number=2, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="OPTUS MOBILE BROADBAND DIRECT DEBIT", description_raw="OPTUS MOBILE BROADBAND DIRECT DEBIT", debit=Decimal("79.00")
+    )
+    c_fuel_neg = default_hybrid_classifier.classify_transaction(t_fuel_neg)
+    assert c_fuel_neg.category == "Utilities & Bills"
+
+    # COLA must not trigger OLA rideshare
+    t_ola_neg = NormalizedTransaction(
+        id="t3", line_number=3, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="COLA BEVERAGE PURCHASE", description_raw="COLA BEVERAGE PURCHASE", debit=Decimal("4.50")
+    )
+    c_ola_neg = default_hybrid_classifier.classify_transaction(t_ola_neg)
+    assert c_ola_neg.category != "Transport & Travel"
+
+    # 2. Specificity and Processor Gateway Routing
+    # PAYPAL * STEAM GAMES should strip PAYPAL and route to Entertainment via STEAM
+    t_paypal = NormalizedTransaction(
+        id="t4", line_number=4, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="PAYPAL * STEAM GAMES ONLINE", description_raw="PAYPAL * STEAM GAMES ONLINE", debit=Decimal("29.99")
+    )
+    c_paypal = default_hybrid_classifier.classify_transaction(t_paypal)
+    assert c_paypal.channel == "PAYPAL"
+    assert c_paypal.category == "Entertainment & Subscriptions"
+
+    # TRANSFER TO LANDLORD should match LANDLORD (Rent) over TRANSFER TO (Transfers Out)
+    t_landlord = NormalizedTransaction(
+        id="t5", line_number=5, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="TRANSFER TO LANDLORD RENT AUGUST", description_raw="TRANSFER TO LANDLORD RENT AUGUST", debit=Decimal("650.00")
+    )
+    c_landlord = default_hybrid_classifier.classify_transaction(t_landlord)
+    assert c_landlord.category == "Rent & Housing"
+
+    # ANZ MORTGAGE PAYMENT should route to Loan & Credit Payments, not Rent
+    t_mortgage = NormalizedTransaction(
+        id="t6", line_number=6, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="ANZ MORTGAGE REPAYMENT HOME LOAN", description_raw="ANZ MORTGAGE REPAYMENT HOME LOAN", debit=Decimal("1850.00")
+    )
+    c_mortgage = default_hybrid_classifier.classify_transaction(t_mortgage)
+    assert c_mortgage.category == "Loan & Credit Payments"
+
+    # APPLE.COM/BILL should route to Entertainment & Subscriptions
+    t_apple = NormalizedTransaction(
+        id="t7", line_number=7, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="APPLE.COM/BILL DIGITAL MEDIA", description_raw="APPLE.COM/BILL DIGITAL MEDIA", debit=Decimal("14.99")
+    )
+    c_apple = default_hybrid_classifier.classify_transaction(t_apple)
+    assert c_apple.category == "Entertainment & Subscriptions"
+
+    # AMAZON PRIME should route to Entertainment & Subscriptions
+    t_prime = NormalizedTransaction(
+        id="t8", line_number=8, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="AMAZON PRIME SUBSCRIPTION", description_raw="AMAZON PRIME SUBSCRIPTION", debit=Decimal("9.99")
+    )
+    c_prime = default_hybrid_classifier.classify_transaction(t_prime)
+    assert c_prime.category == "Entertainment & Subscriptions"
+
+    # 3. New Taxonomy Categories
+    # Taxes
+    t_tax = NormalizedTransaction(
+        id="t9", line_number=9, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="ATO TAX PAYMENT 2026", description_raw="ATO TAX PAYMENT 2026", debit=Decimal("450.00")
+    )
+    c_tax = default_hybrid_classifier.classify_transaction(t_tax)
+    assert c_tax.category == "Taxes & Government"
+
+    # Education
+    t_edu = NormalizedTransaction(
+        id="t10", line_number=10, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="SYDNEY UNIVERSITY TUITION FEES", description_raw="SYDNEY UNIVERSITY TUITION FEES", debit=Decimal("1200.00")
+    )
+    c_edu = default_hybrid_classifier.classify_transaction(t_edu)
+    assert c_edu.category == "Education & Childcare"
+
+    # Donations
+    t_don = NormalizedTransaction(
+        id="t11", line_number=11, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="RED CROSS AUSTRALIA DONATION", description_raw="RED CROSS AUSTRALIA DONATION", debit=Decimal("50.00")
+    )
+    c_don = default_hybrid_classifier.classify_transaction(t_don)
+    assert c_don.category == "Donations & Charity"
+
+    # Investments
+    t_inv = NormalizedTransaction(
+        id="t12", line_number=12, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="VANGUARD DIVERSIFIED ETF", description_raw="VANGUARD DIVERSIFIED ETF", debit=Decimal("500.00")
+    )
+    c_inv = default_hybrid_classifier.classify_transaction(t_inv)
+    assert c_inv.category == "Investments & Wealth"
+
+    # 4. Corporate Payroll Heuristic (no literal word 'salary' in narrative)
+    t_corp = NormalizedTransaction(
+        id="t13", line_number=13, page_number=1, date="2026-08-01", date_raw="01/08/2026",
+        description="CANVA PTY LTD DIRECT CREDIT", description_raw="CANVA PTY LTD DIRECT CREDIT", credit=Decimal("3450.00")
+    )
+    c_corp = default_hybrid_classifier.classify_transaction(t_corp)
+    assert c_corp.category == "Salary & Wages"
+    assert c_corp.rule_id == "HEURISTIC_PAYROLL"
+

@@ -1,5 +1,6 @@
 """Hybrid classification engine coordinating rules, ML model, and confidence thresholds."""
 
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -46,9 +47,33 @@ class HybridClassifier:
 
         # 2. Rule Engine check (Layer 1)
         rule_match = self.rule_engine.classify(clean_desc, direction=direction)
+
+        # If a Tier 1 or Tier 2 rule matches with confidence >= 0.85: accept directly
+        if rule_match and rule_match[2] >= 0.85:
+            cat, subcat, conf, rule_id, tokens = rule_match
+            txn.category = cat
+            txn.subcategory = subcat
+            txn.category_source = ClassificationSource.RULE
+            txn.category_confidence = conf
+            txn.rule_id = rule_id
+            return txn
+
+        # 3. Traditional ML Model check (Layer 2)
+        ml_cat, ml_prob, top3 = self.ml_classifier.predict(clean_desc)
+        txn.ml_top3 = top3
+
+        # If a Tier 3 generic rule matched (conf < 0.85), corroborate with ML
         if rule_match:
             cat, subcat, conf, rule_id, tokens = rule_match
-            if conf >= self.rule_threshold:
+            # If ML has strong disagreement and much higher confidence, accept ML
+            if ml_prob >= 0.85 and ml_cat != cat:
+                txn.category = ml_cat
+                txn.subcategory = None
+                txn.category_source = ClassificationSource.ML
+                txn.category_confidence = ml_prob
+                return txn
+            else:
+                # Corroborate rule match
                 txn.category = cat
                 txn.subcategory = subcat
                 txn.category_source = ClassificationSource.RULE
@@ -56,10 +81,20 @@ class HybridClassifier:
                 txn.rule_id = rule_id
                 return txn
 
-        # 3. Traditional ML Model check (Layer 2)
-        ml_cat, ml_prob, top3 = self.ml_classifier.predict(clean_desc)
-        txn.ml_top3 = top3
+        # 4. Corporate Payroll Heuristic for Unlabeled Credits (Evaluated before generic ML)
+        if direction == "credit" and txn.credit is not None and txn.credit >= 400.00:
+            is_payroll_rail = bool(re.search(r"\b(BACS CR|DIRECT CREDIT|DIR CR|SALARY|PAYROLL|WAGES|REMPAY)\b", clean_desc, re.IGNORECASE))
+            is_corporate_entity = bool(re.search(r"\b(PTY LTD|LTD|PLC|LLC|LIMITED|CORP|CORPORATION|INC)\b", clean_desc, re.IGNORECASE))
+            is_excluded = any(t in clean_desc for t in ["REFUND", "REBATE", "DIVIDEND", "INTEREST", "TRANSFER FROM SAVINGS", "CASH DEPOSIT"])
+            if (is_payroll_rail or is_corporate_entity) and not is_excluded:
+                txn.category = "Salary & Wages"
+                txn.subcategory = "Regular Pay"
+                txn.category_source = ClassificationSource.RULE
+                txn.category_confidence = 0.88
+                txn.rule_id = "HEURISTIC_PAYROLL"
+                return txn
 
+        # 5. Standard ML Model prediction
         if ml_prob >= self.ml_threshold:
             txn.category = ml_cat
             txn.subcategory = None
@@ -67,7 +102,7 @@ class HybridClassifier:
             txn.category_confidence = ml_prob
             return txn
 
-        # 4. Low confidence fallback -> Mark for human review
+        # 6. Low confidence fallback -> Mark for human review
         txn.category = "Other / Unclassified"
         txn.subcategory = None
         txn.category_source = ClassificationSource.UNCLASSIFIED
