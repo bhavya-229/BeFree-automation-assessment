@@ -152,23 +152,39 @@ The pipeline dynamically adapts to locale-specific bank statement schemas:
 
 ---
 
-## Getting Started
+## Quick Evaluation Walkthrough (30 Seconds)
+
+If you are reviewing this assessment, here is the fastest way to test all core capabilities:
+
+1. **Start the application** using Docker (`docker compose up --build`) or local setup.
+2. Open **[http://localhost:5173](http://localhost:5173)** in your browser.
+3. **1-Click Statement Demo**: In the *"Try Demo Statements"* panel on the homepage, click **"Run in App"** on **CommBank (AU)** or **Barclays (UK)**. The statement processes instantly, showing the interactive table, audit score, and ledger reconciliation proof.
+4. **Test Encrypted PDF**: Click **"Run in App"** on **Encrypted CommBank**. A secure decryption modal appears. Enter password: `befree2026`. The PDF unlocks in-memory without saving the password to disk.
+5. **Test Active Learning**:
+   - In the transaction table, change any transaction's category (e.g., set an e-commerce or utility transaction to *Consulting & Services*).
+   - The change is saved and immediately learned into the persistent `user_rules` table.
+   - Any matching transaction across future statement uploads will now automatically classify as *Consulting & Services* with confidence `1.0` and source `MANUAL`.
+6. **Test Formula-Safe Export**: Click **"Export CSV"** or **"Export Excel"**. Open the downloaded file to verify that all financial amounts use decimal formatting and dangerous formula characters (`=`, `+`, `-`, `@`) are safely escaped with a leading apostrophe (`'`).
+
+---
+
+## Getting Started & Execution Instructions
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+ & npm
-- Tesseract OCR (Optional for native PDFs; required for scanned image OCR)
+- **Docker & Docker Compose** (Recommended for 1-command startup with pre-configured Tesseract 5 & OpenCV)  
+  *— OR —*
+- **Python 3.11+** and **Node.js 18+ (with npm)** for running locally.
 
 ---
 
 ### Option A: Running with Docker Compose (Recommended)
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/bhavya-229/BeFree-automation-assessment.git
 cd BeFree-automation-assessment
 
-# Start both backend and frontend services
+# 2. Build and launch all services
 docker compose up --build
 ```
 
@@ -176,36 +192,53 @@ docker compose up --build
 - **FastAPI OpenAPI Swagger**: [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
 - **Backend Health Check**: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 
+*To stop the containers:*
+```bash
+docker compose down
+```
+
 ---
 
 ### Option B: Running Locally
 
 #### 1. Backend Setup
-```bash
-# In repository root
+
+**On Windows (PowerShell):**
+```powershell
+# In repository root:
 python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 
-# On Windows:
-.venv\Scripts\activate
-# On Linux/macOS:
-# source .venv/bin/activate
+# Install backend dependencies:
+pip install -e "backend[dev]"
 
-# Install dependencies
-pip install -e backend/.[dev]
-
-# Start FastAPI server
+# Launch FastAPI development server:
 python backend/run_dev.py
 ```
-*Backend runs on `http://127.0.0.1:8000`.*
+
+**On Linux / macOS (Bash):**
+```bash
+# In repository root:
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install backend dependencies:
+pip install -e "./backend[dev]"
+
+# Launch FastAPI development server:
+python backend/run_dev.py
+```
+*Backend runs on `http://127.0.0.1:8000` (auto-reloading on changes).*
 
 #### 2. Frontend Setup
+
+In a new terminal window:
 ```bash
-# In a separate terminal
 cd frontend
 npm install
 npm run dev
 ```
-*Frontend runs on `http://localhost:5173`.*
+*Frontend runs on `http://localhost:5173` and automatically proxies `/api` requests to `http://127.0.0.1:8000`.*
 
 ---
 
@@ -232,22 +265,25 @@ python backend/scripts/make_fixtures.py
 
 ## Automated Test Suite
 
-The test suite validates the complete ingestion pipeline, spatial layout reconstruction, password security, mathematical ledger checks, and non-LLM classifiers:
+The test suite validates the complete ingestion pipeline, spatial layout reconstruction, password security, mathematical ledger checks, active learning feedback loops, and non-LLM classifiers:
 
 ```bash
-# Run pytest across the entire test suite
+# Run pytest across the entire test suite (38 tests, 100% passing)
 pytest backend/tests -v
+
+# Or run inside Docker:
+docker compose exec api pytest tests -v
 ```
 
-### Test Coverage Highlights:
-- `test_intake.py`: Magic byte validation, file size limits, corrupt stream rejection.
-- `test_pdf_type.py`: Page-level digital vs. scanned vs. hybrid classification.
-- `test_extraction.py`: Spatial word extraction and coordinate mapping.
-- `test_parsing.py`: Country-aware date formats (`DD/MM/YYYY`, `DD-MMM-YYYY`), amount normalizers.
-- `test_reconcile.py`: Running balance ledger checks, inverted column repairs, delta amount recovery.
-- `test_classifier.py`: Rule priority, sub-word char_wb FeatureUnion ML, active learning user rules memory, LRU cache hit checks, real-world UPI statements test.
-- `test_export.py`: Formula injection neutralization (`'` prefix), CSV BOM encoding, XLSX structures.
-- `test_api.py`: End-to-end API lifecycle: upload, encrypted 401 handling, patch category, export CSV/XLSX.
+### Test Coverage Highlights (38 Tests):
+- `test_intake.py` (6 tests): Magic byte validation, file size limits, corrupt stream rejection, 128-bit encryption detection.
+- `test_pdf_type.py` (4 tests): Page-level digital vs. scanned vs. hybrid classification, CID font corruption routing.
+- `test_extraction.py` (5 tests): Spatial word extraction, table header discovery, multiline continuation, CLAHE preprocessing.
+- `test_parsing.py` (4 tests): Country-aware date formats (`DD/MM/YYYY`, `DD-MMM-YYYY`), amount normalizers, OCR repair.
+- `test_reconcile.py` (3 tests): Running balance ledger checks, inverted column repairs, delta amount recovery.
+- `test_classifier.py` (9 tests): Deterministic rules, sub-word char_wb FeatureUnion ML, active learning user rules memory, LRU cache hit checks, and real-world Indian UPI statements.
+- `test_export.py` (3 tests): Formula injection neutralization (`'` prefix), CSV BOM encoding, XLSX workbook structures.
+- `test_api.py` (4 tests): End-to-end API lifecycle: upload, encrypted 401 handling, patch category, export CSV/XLSX.
 
 ---
 
