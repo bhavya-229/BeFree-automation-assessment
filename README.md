@@ -54,9 +54,11 @@ flowchart TD
     end
 
     subgraph Intelligence ["5. Non-LLM Hybrid Classification"]
-        S --> T["Deterministic Heuristic Rules Engine (>= 0.80)"]
-        T -->|No Rule Match| U["TF-IDF + Calibrated Logistic Regression (>= 0.60)"]
-        U -->|Confidence < 0.60| V["Human-in-the-Loop Review Queue"]
+        S --> T0["Active Learning Memory (user_rules SQLite WAL)"]
+        T0 -->|Cache Miss| T["Deterministic Heuristic Rules Engine (>= 0.80)"]
+        T -->|No Rule Match| U["Sub-word Char + Word n-gram FeatureUnion (>= 1.80x margin)"]
+        U -->|Ambiguous / Low Margin| V["Human-in-the-Loop Review Queue"]
+        V -->|User Reclassifies| T0
     end
 
     subgraph Presentation ["6. Presentation & Delivery"]
@@ -73,7 +75,8 @@ flowchart TD
 ## Core Engineering Principles
 
 ### 1. Zero-LLM & Fully Local Processing
-- **Predictable & Reproducible**: Transaction classification runs deterministically using a prioritized rule engine (regex merchant normalization) combined with a calibrated `scikit-learn` Logistic Regression classifier.
+- **Predictable & Reproducible**: Transaction classification runs deterministically using a prioritized rule engine (regex merchant normalization) combined with a calibrated `scikit-learn` Logistic Regression classifier powered by `FeatureUnion` (word n-grams `(1, 2)` + sub-word character n-grams `(3, 5)`).
+- **Active Learning Feedback Loop**: User manual corrections in the UI persist directly to SQLite WAL (`user_rules`) and immediately apply to all future statements with `1.0` confidence and `MANUAL` provenance.
 - **Privacy & Cost**: Zero external cloud APIs, zero third-party data leaks, zero tokens billed per page. Financial data never leaves the runtime environment.
 - **Strict Guardrail**: Automated linting and tests fail if any LLM SDK (`openai`, `anthropic`, `langchain`, `transformers`) appears in dependencies.
 
@@ -95,9 +98,11 @@ flowchart TD
 | **Password-Protected PDFs** | In-memory `pikepdf` decryption. Returns RFC 7807 `401 PDF_ENCRYPTED` or `WRONG_PASSWORD`. UI renders a dedicated `PasswordDialog` with show/hide toggle. Zero storage of credentials. | [`app/api/v1/statements.py`](backend/app/api/v1/statements.py) |
 | **Glued Columns & Agglutination** | When merchant narrations collide with money columns (e.g. `BOOTS PICCADILLY18.30`), the coordinate tokenizer performs regex token splitting (`r"^([A-Za-z]+)(\d+\.\d{2})$"`) with proportional bounding box subdivision. | [`app/pipeline/layout/row_builder.py`](backend/app/pipeline/layout/row_builder.py) |
 | **Swallowed Amounts in Narrations** | If an amount is missing, the reconciliation engine calculates $\Delta = B_{prev} - B_{curr}$. If $\Delta$ matches the description suffix, it extracts the debit, trims the narration, and flags `INFERRED_AMOUNT`. | [`app/pipeline/validate/reconcile.py`](backend/app/pipeline/validate/reconcile.py) |
-| **Scanned & Degraded Pages** | Page-level inspector calculates text density, non-printing garbage characters (`(cid:N)`, `\ufffd`), and image area ratios. Automatically triggers OpenCV CLAHE thresholding and Tesseract 5 OCR when needed. | [`app/pipeline/pdf_type.py`](backend/app/pipeline/pdf_type.py) |
+| **Scanned & Degraded Pages** | Page-level inspector calculates text density, non-printing garbage characters (`(cid:N)`, `\ufffd`), and image area ratios. Automatically triggers OpenCV CLAHE thresholding and multi-threaded Tesseract 5 OCR (`ThreadPoolExecutor`) across CPU cores. | [`app/pipeline/pdf_type.py`](backend/app/pipeline/pdf_type.py), [`app/api/v1/statements.py`](backend/app/api/v1/statements.py) |
 | **Inverted Debit/Credit Columns** | Validates $B_{prev} - D + C = B_{curr}$. If invalid, tests whether swapping Debit and Credit reconciles the equation ($B_{prev} + D - C = B_{curr}$). If so, repairs columns with flag `REPAIRED_DIRECTION`. | [`app/pipeline/validate/reconcile.py`](backend/app/pipeline/validate/reconcile.py) |
 | **Multi-Line Narrations** | Continuation lines lacking dates or amounts are re-assembled into the parent transaction's narration block, preserving spatial order and line breaks. | [`app/pipeline/layout/row_builder.py`](backend/app/pipeline/layout/row_builder.py) |
+| **Active Learning Memory** | Manual category edits in the UI persist to `user_rules` table in SQLite, automatically learning payee patterns across statements and skipping ML/rules for familiar merchants. | [`app/core/database.py`](backend/app/core/database.py), [`app/core/storage.py`](backend/app/core/storage.py) |
+| **Concatenated Bank Rails & OCR Noise** | Uses `char_wb (3, 5)` sub-word character n-grams to extract embedded merchant tokens within noisy payment strings (`UPI/.../DR/Amazon/...` or `POS2193WOOLWORTHS`). | [`app/classification/ml/model.py`](backend/app/classification/ml/model.py) |
 | **Spreadsheet Formula Injection** | Prevents CSV/Excel formula execution by sanitizing all cells starting with `=`, `+`, `-`, or `@` with a leading apostrophe (`'`). | [`app/export/csv_exporter.py`](backend/app/export/csv_exporter.py), [`xlsx_exporter.py`](backend/app/export/xlsx_exporter.py) |
 
 ---
@@ -240,7 +245,7 @@ pytest backend/tests -v
 - `test_extraction.py`: Spatial word extraction and coordinate mapping.
 - `test_parsing.py`: Country-aware date formats (`DD/MM/YYYY`, `DD-MMM-YYYY`), amount normalizers.
 - `test_reconcile.py`: Running balance ledger checks, inverted column repairs, delta amount recovery.
-- `test_classifier.py`: Rule priority, regex merchant normalization, calibrated ML inference.
+- `test_classifier.py`: Rule priority, sub-word char_wb FeatureUnion ML, active learning user rules memory, LRU cache hit checks, real-world UPI statements test.
 - `test_export.py`: Formula injection neutralization (`'` prefix), CSV BOM encoding, XLSX structures.
 - `test_api.py`: End-to-end API lifecycle: upload, encrypted 401 handling, patch category, export CSV/XLSX.
 
@@ -269,7 +274,7 @@ beFree/
 │   ├── app/
 │   │   ├── api/v1/                 # REST endpoints (statements, export, review)
 │   │   ├── classification/         # Non-LLM classifier (rules engine, TF-IDF + Logistic Regression)
-│   │   ├── core/                   # Storage abstraction and utility helpers
+│   │   ├── core/                   # SQLite WAL repository with active learning user_rules persistence
 │   │   ├── export/                 # Formula-safe CSV & XLSX export engines
 │   │   ├── pipeline/
 │   │   │   ├── bank_profiles/      # Bank layout profiles (AU CBA, UK Barclays, Generic)
@@ -282,7 +287,7 @@ beFree/
 │   │   └── main.py                 # FastAPI application factory
 │   ├── scripts/
 │   │   └── make_fixtures.py        # ReportLab synthetic statement generator
-│   └── tests/                      # 33 unit and end-to-end pytest tests
+│   └── tests/                      # 38 unit and end-to-end pytest tests
 │
 ├── frontend/
 │   ├── src/
