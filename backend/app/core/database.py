@@ -1,6 +1,7 @@
 """SQLite database engine, connection pragmas, and SQLAlchemy 2 ORM models."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any, List, Optional
 from sqlalchemy import (
@@ -17,9 +18,21 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 
-DB_PATH = Path("d:/beFree/data/statements.db")
+# Support cross-platform storage path (Windows local or Linux Docker container)
+env_data_dir = os.environ.get("DATA_DIR")
+if env_data_dir:
+    DB_PATH = Path(env_data_dir) / "statements.db"
+else:
+    # Resolve relative to backend directory or working directory
+    base_dir = Path(__file__).resolve().parent.parent.parent.parent
+    candidate = base_dir / "data" / "statements.db"
+    if candidate.parent.exists():
+        DB_PATH = candidate
+    else:
+        DB_PATH = Path("data/statements.db").resolve()
+
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+DATABASE_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 engine = create_engine(
     DATABASE_URL,
@@ -30,9 +43,13 @@ engine = create_engine(
 
 @event.listens_for(engine, "connect")
 def configure_sqlite_pragmas(dbapi_connection, connection_record):
-    """Enable Write-Ahead Logging (WAL) and foreign keys for high-performance concurrent SQLite."""
+    """Enable Write-Ahead Logging (WAL) and foreign keys with fallback for Docker volume mounts."""
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        # Fallback to DELETE mode on virtual volume mounts (e.g. Windows NTFS mounted into Linux Docker)
+        cursor.execute("PRAGMA journal_mode=DELETE")
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()

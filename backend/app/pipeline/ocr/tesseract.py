@@ -1,8 +1,10 @@
 """Tesseract OCR engine wrapper emitting normalized Word streams."""
 
+import os
 from pathlib import Path
 from typing import List, Optional
 import shutil
+from fastapi import status
 from PIL import Image
 import pytesseract
 from pytesseract import Output
@@ -13,17 +15,42 @@ from app.config import settings
 from app.errors import ErrorCode, ProcessingError
 
 
+def find_tesseract_cmd() -> Optional[str]:
+    """Dynamically locate Tesseract executable across system PATH and well-known Windows locations."""
+    cmd = shutil.which("tesseract")
+    if cmd:
+        return cmd
+
+    if os.name == "nt":
+        candidates = [
+            Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
+            Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
+            Path(os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe")),
+            Path(r"C:\Tesseract-OCR\tesseract.exe"),
+        ]
+        for p in candidates:
+            if p.exists():
+                return str(p)
+
+    return None
+
+
 class TesseractOcrEngine:
-    """Wrapper around local Tesseract binary with automatic fallback."""
+    """Wrapper around local Tesseract binary with automatic dynamic fallback."""
 
     def __init__(self, tesseract_cmd: Optional[str] = None):
-        self.tesseract_cmd = tesseract_cmd or shutil.which("tesseract")
+        self.tesseract_cmd = tesseract_cmd or find_tesseract_cmd()
         if self.tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = self.tesseract_cmd
 
     @property
     def is_available(self) -> bool:
         """Check if local Tesseract executable is installed and runnable."""
+        if not self.tesseract_cmd:
+            self.tesseract_cmd = find_tesseract_cmd()
+            if self.tesseract_cmd:
+                pytesseract.pytesseract.tesseract_cmd = self.tesseract_cmd
+
         if not self.tesseract_cmd:
             return False
         try:
@@ -38,13 +65,20 @@ class TesseractOcrEngine:
         if width <= 0 or height <= 0:
             return []
 
-        # If Tesseract is not installed on the host runner, return empty or raise structured error
         if not self.is_available:
-            return []
+            raise ProcessingError(
+                code=ErrorCode.OCR_UNAVAILABLE,
+                message=(
+                    f"Page {page_number} is a scanned raster image requiring OCR, but Tesseract 5 was not found on your system. "
+                    "To process scanned/image-based PDFs, run using Docker ('docker compose up') where Tesseract is pre-configured, "
+                    "or install Tesseract OCR on Windows."
+                ),
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
 
         try:
-            # PSM 6: Assume a single uniform block of text
-            config = f"--psm 6 -l {settings.OCR_LANGS}"
+            # PSM 4: Assume a single column of text of variable sizes (ideal for tables and bank statements)
+            config = f"--psm 4 -l {settings.OCR_LANGS}"
             data = pytesseract.image_to_data(image, config=config, output_type=Output.DICT)
         except Exception as e:
             raise ProcessingError(

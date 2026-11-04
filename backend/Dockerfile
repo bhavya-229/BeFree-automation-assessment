@@ -17,7 +17,8 @@ COPY backend/pyproject.toml .
 RUN pip install --no-cache-dir \
     fastapi uvicorn pydantic pydantic-settings pdfplumber pypdfium2 pikepdf \
     pytesseract opencv-python-headless numpy Pillow rapidfuzz python-dateutil \
-    scikit-learn joblib xlsxwriter openpyxl python-multipart httpx
+    scikit-learn joblib xlsxwriter openpyxl python-multipart httpx \
+    sqlalchemy pyyaml
 
 COPY backend/app ./app
 COPY backend/app/classification/taxonomy.yaml ./app/classification/taxonomy.yaml

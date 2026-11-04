@@ -88,11 +88,8 @@ def assign_words_to_columns(
     if not columns or not words:
         return assigned
 
-    sorted_cols = sorted(columns, key=lambda c: c.x_center)
-    split_points: List[float] = []
-    for i in range(len(sorted_cols) - 1):
-        mid = (sorted_cols[i].x_center + sorted_cols[i + 1].x_center) / 2.0
-        split_points.append(mid)
+    sorted_cols = sorted(columns, key=lambda c: c.x0)
+    split_points: List[float] = [sorted_cols[i + 1].x0 for i in range(len(sorted_cols) - 1)]
 
     # Disentangle tokens where narration and amount were merged due to zero gap (e.g. PICCADILLY18.30)
     expanded_words: List[Word] = []
@@ -128,9 +125,9 @@ def assign_words_to_columns(
             expanded_words.append(word)
 
     for word in expanded_words:
-        wx = word.x_center
+        wx = word.x0
         col_idx = 0
-        while col_idx < len(split_points) and wx > split_points[col_idx]:
+        while col_idx < len(split_points) and wx >= split_points[col_idx]:
             col_idx += 1
         target_col = sorted_cols[col_idx]
         assigned[target_col.col_type].append(word)

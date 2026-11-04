@@ -1,6 +1,10 @@
 """Pytest fixtures for generating synthetic test PDFs."""
 
+import os
 import sys
+
+# Prevent OpenBLAS memory allocation error on Windows Python 3.13
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 from pathlib import Path
 import pytest
 from PIL import Image

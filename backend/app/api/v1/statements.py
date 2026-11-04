@@ -124,15 +124,19 @@ def execute_pipeline(
             )
         )
 
-    # 6. Balance validation & reconciliation
-    reconciled_txns, recon_summary = validate_and_reconcile_transactions(normalized_txns)
-
-    # 7. Non-LLM hybrid classification
-    classified_txns = default_hybrid_classifier.classify_all(reconciled_txns)
-
-    # 8. Extract Statement & Account Metadata
+    # 6. Extract Statement & Account Metadata
     full_text = "\n".join([line.text for line in lines])
     stmt_meta = extract_metadata_from_text(full_text)
+
+    # 7. Balance validation & reconciliation
+    reconciled_txns, recon_summary = validate_and_reconcile_transactions(
+        normalized_txns,
+        opening_balance=stmt_meta.opening_balance,
+        closing_balance=stmt_meta.closing_balance,
+    )
+
+    # 8. Non-LLM hybrid classification
+    classified_txns = default_hybrid_classifier.classify_all(reconciled_txns)
 
     # 9. Persist statement record
     record = StatementRecord(
@@ -181,6 +185,19 @@ SAMPLE_MAP = {
 }
 
 
+def get_samples_dir() -> Path:
+    """Find samples directory across local and Docker container environments."""
+    candidates = [
+        Path("data/samples"),
+        Path("/app/data/samples"),
+        Path("d:/beFree/data/samples"),
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return Path("data/samples")
+
+
 @router.post("/samples/{sample_key}", status_code=status.HTTP_201_CREATED)
 async def load_sample_statement(sample_key: str, password: Optional[str] = Query(None)):
     """Load and process a pre-bundled synthetic sample statement (cba, barclays, westpac, sbi, encrypted)."""
@@ -188,7 +205,7 @@ async def load_sample_statement(sample_key: str, password: Optional[str] = Query
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown sample key.")
 
     sample_filename, display_name = SAMPLE_MAP[sample_key]
-    file_path = Path("d:/beFree/data/samples") / sample_filename
+    file_path = get_samples_dir() / sample_filename
 
     if not file_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sample PDF not found.")
@@ -212,7 +229,7 @@ async def download_sample_pdf(sample_key: str):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown sample key.")
 
     sample_filename, display_name = SAMPLE_MAP[sample_key]
-    file_path = Path("d:/beFree/data/samples") / sample_filename
+    file_path = get_samples_dir() / sample_filename
 
     if not file_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sample PDF not found.")
