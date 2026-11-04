@@ -1,0 +1,81 @@
+# Configurable category taxonomy with spending directionality
+categories:
+  # Income
+  - id: salary
+    name: "Salary & Wages"
+    direction: credit
+    subcategories: ["Regular Pay", "Bonus", "Overtime"]
+  - id: transfers_in
+    name: "Transfers In"
+    direction: credit
+    subcategories: ["P2P Transfer", "Self Transfer", "Deposit"]
+  - id: interest_investments
+    name: "Interest & Investments"
+    direction: credit
+    subcategories: ["Bank Interest", "Dividends", "Capital Return"]
+  - id: refunds
+    name: "Refunds & Cashbacks"
+    direction: credit
+    subcategories: ["Merchant Refund", "Cashback", "Rebate"]
+  - id: other_income
+    name: "Other Income"
+    direction: credit
+    subcategories: ["Consulting", "Gifts", "Miscellaneous"]
+
+  # Expenses
+  - id: groceries
+    name: "Groceries"
+    direction: debit
+    subcategories: ["Supermarket", "Bakery", "Convenience"]
+  - id: dining
+    name: "Dining & Restaurants"
+    direction: debit
+    subcategories: ["Restaurants", "Cafes & Coffee", "Takeaway & Delivery"]
+  - id: transport
+    name: "Transport & Travel"
+    direction: debit
+    subcategories: ["Public Transport", "Rideshare & Taxi", "Fuel", "Tolls", "Airlines"]
+  - id: utilities
+    name: "Utilities & Bills"
+    direction: debit
+    subcategories: ["Electricity & Gas", "Water", "Internet & Mobile", "Council Rates"]
+  - id: rent_housing
+    name: "Rent & Housing"
+    direction: debit
+    subcategories: ["Rent", "Mortgage", "Maintenance"]
+  - id: shopping
+    name: "Shopping & Retail"
+    direction: debit
+    subcategories: ["Clothing", "Electronics", "Home & Hardware", "Online Shopping"]
+  - id: healthcare
+    name: "Healthcare & Pharmacy"
+    direction: debit
+    subcategories: ["Pharmacy", "Doctor & Medical", "Dental", "Optical"]
+  - id: insurance
+    name: "Insurance"
+    direction: debit
+    subcategories: ["Health Insurance", "Vehicle Insurance", "Home Insurance", "Life Insurance"]
+  - id: fees_charges
+    name: "Fees & Charges"
+    direction: debit
+    subcategories: ["Bank Fees", "Overdraft Fees", "Government Fees", "Late Fees"]
+  - id: loan_repayments
+    name: "Loan & Credit Payments"
+    direction: debit
+    subcategories: ["Personal Loan", "Credit Card Payment", "Car Loan"]
+  - id: entertainment
+    name: "Entertainment & Subscriptions"
+    direction: debit
+    subcategories: ["Streaming Services", "Gaming", "Cinema", "Music", "Gym & Fitness"]
+  - id: cash_withdrawal
+    name: "Cash Withdrawal"
+    direction: debit
+    subcategories: ["ATM Withdrawal", "Branch Withdrawal"]
+  - id: transfers_out
+    name: "Transfers Out"
+    direction: debit
+    subcategories: ["P2P Transfer", "Direct Debit", "Standing Order"]
+  - id: unclassified
+    name: "Other / Unclassified"
+    direction: both
+    subcategories: ["Unclassified"]

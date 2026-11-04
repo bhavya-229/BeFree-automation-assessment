@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-indigo: #2E2C8F;
+    --brand-ink: #1B1637;
+    --brand-muted: #5B5875;
+    --brand-border: #E4E2EC;
+    --brand-cream: #FAF7F0;
+  }
+
+  body {
+    background-color: #F8F9FC;
+    color: #1B1637;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,20 @@
+# Barclays UK Bank Statement Profile
+bank_code: uk_barclays
+bank_name: Barclays Bank UK PLC
+country: UK
+currency: GBP
+verified: true
+account_identifier_type: SORT_CODE
+header_keywords:
+  - Date
+  - Description
+  - Money out
+  - Money in
+  - Balance
+date_formats:
+  - "%d %b %Y"
+  - "%d/%m/%Y"
+terminators:
+  - "Closing balance"
+  - "Total in"
+  - "Total out"

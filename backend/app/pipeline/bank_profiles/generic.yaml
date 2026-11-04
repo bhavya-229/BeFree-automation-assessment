@@ -1,0 +1,21 @@
+# Generic bank statement extraction profile
+bank_code: generic
+bank_name: Generic Fallback
+country: universal
+currency: universal
+verified: true
+header_keywords:
+  - date
+  - description
+  - debit
+  - credit
+  - balance
+date_formats:
+  - "%d/%m/%Y"
+  - "%d-%m-%Y"
+  - "%d %b %Y"
+  - "%Y-%m-%d"
+terminators:
+  - "Closing Balance"
+  - "Statement Summary"
+  - "End of Statement"

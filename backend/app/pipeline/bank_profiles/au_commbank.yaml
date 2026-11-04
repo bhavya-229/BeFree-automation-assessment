@@ -1,0 +1,20 @@
+# Commonwealth Bank of Australia (CBA) Statement Profile
+bank_code: au_commbank
+bank_name: Commonwealth Bank of Australia
+country: AU
+currency: AUD
+verified: true
+account_identifier_type: BSB
+header_keywords:
+  - Date
+  - Transaction
+  - Debit
+  - Credit
+  - Balance
+date_formats:
+  - "%d/%m/%Y"
+  - "%d %b %Y"
+terminators:
+  - "Closing balance"
+  - "Total debits"
+  - "Total credits"
