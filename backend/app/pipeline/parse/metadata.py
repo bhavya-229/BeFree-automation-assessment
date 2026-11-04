@@ -49,6 +49,11 @@ def extract_metadata_from_text(raw_text: str) -> StatementMetadata:
     elif "STATE BANK OF INDIA" in text_upper or "SBI" in text_upper:
         meta.bank_name = "State Bank of India"
         meta.currency = "INR"
+    else:
+        # Generic institution detection (e.g. "Southern Cross Test Bank", "St. George Bank")
+        bank_title_match = re.search(r'([A-Za-z\s]+(?:Bank|Building Society|Credit Union))', raw_text, re.IGNORECASE)
+        if bank_title_match:
+            meta.bank_name = bank_title_match.group(1).strip()
 
     # Explicit Currency overrides
     if "CURRENCY: AUD" in text_upper or " AUD " in text_upper or "A$" in raw_text:
@@ -73,26 +78,31 @@ def extract_metadata_from_text(raw_text: str) -> StatementMetadata:
         meta.sort_code_or_bsb = sort_match.group(1).replace(" ", "-")
         meta.account_identifier_type = "Sort Code & Account"
 
-    acc_num_match = re.search(r'Account\s*(?:Number|No|#)?[:\s]*([0-9]{6,12})', raw_text, re.IGNORECASE)
+    acc_num_match = re.search(r'Account\s*(?:Number|No|#)?[:\s]*((?:[*X\d]{2,6}\s*)?[0-9]{4,12})', raw_text, re.IGNORECASE)
     if acc_num_match:
-        meta.account_number = acc_num_match.group(1)
+        meta.account_number = acc_num_match.group(1).strip()
 
-    # 3. Period extraction (e.g. Period: 01 Oct 2023 to 31 Oct 2023 or Statement Date: 31 October 2023)
-    period_match = re.search(r'Period[:\s]*([0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4})\s+to\s+([0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4})', raw_text, re.IGNORECASE)
-    if period_match:
-        meta.statement_period_start = period_match.group(1)
-        meta.statement_period_end = period_match.group(2)
+    # 3. Period extraction
+    period_slash_match = re.search(r'(?:period|statement period)[:\s]*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})\s*[^0-9]+\s*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})', raw_text, re.IGNORECASE)
+    if period_slash_match:
+        meta.statement_period_start = period_slash_match.group(1)
+        meta.statement_period_end = period_slash_match.group(2)
     else:
-        stmt_date_match = re.search(r'(?:Statement Date|As at|Date)[:\s]*([0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4})', raw_text, re.IGNORECASE)
-        if stmt_date_match:
-            meta.statement_period_end = stmt_date_match.group(1)
+        period_match = re.search(r'Period[:\s]*([0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4})\s+to\s+([0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4})', raw_text, re.IGNORECASE)
+        if period_match:
+            meta.statement_period_start = period_match.group(1)
+            meta.statement_period_end = period_match.group(2)
+        else:
+            stmt_date_match = re.search(r'(?:Statement Date|As at|Date)[:\s]*([0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4})', raw_text, re.IGNORECASE)
+            if stmt_date_match:
+                meta.statement_period_end = stmt_date_match.group(1)
 
-    # 4. Opening & Closing Balances
-    open_bal_match = re.search(r'Opening\s*Balance[:\s]*\$?([0-9,]+\.[0-9]{2})', raw_text, re.IGNORECASE)
+    # 4. Opening & Closing Balances with international currency prefixes
+    open_bal_match = re.search(r'Opening\s*Balance[:\s]*(?:[A-Za-z]{3}|\$|£|€|₹)?\s*([0-9,]+\.[0-9]{2})', raw_text, re.IGNORECASE)
     if open_bal_match:
         meta.opening_balance = open_bal_match.group(1).replace(",", "")
 
-    close_bal_match = re.search(r'Closing\s*Balance[^:]*[:\s]*\$?([0-9,]+\.[0-9]{2})', raw_text, re.IGNORECASE)
+    close_bal_match = re.search(r'Closing\s*Balance[^:]*[:\s]*(?:[A-Za-z]{3}|\$|£|€|₹)?\s*([0-9,]+\.[0-9]{2})', raw_text, re.IGNORECASE)
     if close_bal_match:
         meta.closing_balance = close_bal_match.group(1).replace(",", "")
 

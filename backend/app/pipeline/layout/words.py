@@ -49,8 +49,8 @@ class TextLine(BaseModel):
         return (self.y0 + self.y1) / 2.0
 
 
-def cluster_words_into_lines(words: List[Word], tolerance_ratio: float = 0.5) -> List[TextLine]:
-    """Cluster words into horizontal lines by y-center proximity."""
+def cluster_words_into_lines(words: List[Word], tolerance_ratio: float = 0.75) -> List[TextLine]:
+    """Cluster words into horizontal lines by y-center proximity (0.75 ratio calibrated for scanned micro-skew)."""
     if not words:
         return []
 

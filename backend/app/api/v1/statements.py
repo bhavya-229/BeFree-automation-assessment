@@ -129,10 +129,24 @@ def execute_pipeline(
     stmt_meta = extract_metadata_from_text(full_text)
 
     # 7. Balance validation & reconciliation
+    from decimal import Decimal, InvalidOperation
+    open_dec: Optional[Decimal] = None
+    close_dec: Optional[Decimal] = None
+    if stmt_meta.opening_balance:
+        try:
+            open_dec = Decimal(stmt_meta.opening_balance.replace(",", ""))
+        except (InvalidOperation, TypeError):
+            pass
+    if stmt_meta.closing_balance:
+        try:
+            close_dec = Decimal(stmt_meta.closing_balance.replace(",", ""))
+        except (InvalidOperation, TypeError):
+            pass
+
     reconciled_txns, recon_summary = validate_and_reconcile_transactions(
         normalized_txns,
-        opening_balance=stmt_meta.opening_balance,
-        closing_balance=stmt_meta.closing_balance,
+        opening_balance=open_dec,
+        closing_balance=close_dec,
     )
 
     # 8. Non-LLM hybrid classification
