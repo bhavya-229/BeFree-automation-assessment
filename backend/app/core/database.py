@@ -136,6 +136,19 @@ class TransactionModel(Base):
     statement: Mapped["StatementModel"] = relationship("StatementModel", back_populates="transactions")
 
 
+class UserRuleModel(Base):
+    """Persisted user correction rules for active learning across statements."""
+
+    __tablename__ = "user_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    pattern: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    category: Mapped[str] = mapped_column(String(100), nullable=False)
+    subcategory: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[str] = mapped_column(String(50), nullable=False)
+    hit_count: Mapped[int] = mapped_column(Integer, default=1)
+
+
 def init_db() -> None:
     """Initialize SQLite tables."""
     Base.metadata.create_all(bind=engine)

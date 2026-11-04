@@ -237,3 +237,84 @@ def test_adversarial_precision_and_negative_matching():
     assert c_corp.category == "Salary & Wages"
     assert c_corp.rule_id == "HEURISTIC_PAYROLL"
 
+
+def test_active_learning_user_rule_memory():
+    """Verify that user-learned rules are persisted and take top priority (Layer 0)."""
+    from app.core.storage import statement_store
+
+    # 1. Register a custom vendor in user rules
+    pattern = "XYZ TECH ADVISORY"
+    expected_category = "Professional & Legal Services"
+    statement_store.learn_user_rule(pattern=pattern, category=expected_category)
+
+    # 2. Classify a new transaction matching this pattern
+    t = NormalizedTransaction(
+        id="t_user_learned",
+        line_number=1,
+        page_number=1,
+        date="2026-08-06",
+        date_raw="06-08-2026",
+        description="UPI/999999999999/DR/XYZ TECH ADVISORY/MUMBAI/NO REM",
+        description_raw="UPI/999999999999/DR/XYZ TECH ADVISORY/MUMBAI/NO REM",
+        debit=Decimal("1500.00"),
+    )
+    classified = default_hybrid_classifier.classify_transaction(t)
+
+    assert classified.category == expected_category
+    assert classified.category_source == ClassificationSource.MANUAL
+    assert classified.category_confidence == 1.0
+    assert classified.rule_id == "USER_LEARNED_RULE"
+
+
+def test_lru_and_deterministic_rule_caching():
+    """Verify that description normalization and rule classification are cached for high throughput."""
+    from app.classification.normalize import clean_description
+
+    clean_description.cache_clear()
+    raw = "UPI/621848103425/DR/Amazon/RATN/amazonpay/Reques"
+    res1, ch1, ref1 = clean_description(raw)
+    res2, ch2, ref2 = clean_description(raw)
+
+    assert res1 == res2
+    assert clean_description.cache_info().hits >= 1
+
+    # Verify RuleEngine cache
+    cache_key = ("AMAZON", "debit")
+    rule_res1 = default_rule_engine.classify("AMAZON", direction="debit")
+    assert cache_key in default_rule_engine._classification_cache
+    rule_res2 = default_rule_engine.classify("AMAZON", direction="debit")
+    assert rule_res1 == rule_res2
+
+
+def test_real_world_upi_bank_statement_records():
+    """Verify classification of real-world Indian bank statement records."""
+    records = [
+        ("UPI/621848103425/DR/Amazon/RATN/amazonpay/Reques", Decimal("1000.00"), None, "Shopping & Retail"),
+        ("UPI/621859612800/DR/Flipka/YESB/flipkart./OD3382", Decimal("426.00"), None, "Shopping & Retail"),
+        ("UPI/622163379669/DR/Meesho/YESB/paytm-177/UPI In", Decimal("188.00"), None, "Shopping & Retail"),
+        ("UPI/622100783538/CR/Meesho/YESB/paytm-177/expres", None, Decimal("188.00"), "Refunds & Cashbacks"),
+        ("NACH DR INW - TP ACH NIPPON IND MF 3170507420 RA", Decimal("2000.00"), None, "Investments & Wealth"),
+        ("UPI/622330342177/CR/Flipka/YESB/flipkart./Refund", None, Decimal("426.00"), "Refunds & Cashbacks"),
+        ("UPI/623736640172/DR/PHARME/HDFC/pharmeasy/Sent u", Decimal("480.37"), None, "Healthcare & Pharmacy"),
+        ("UPI/192425475385/DR/BHIM/ICIC/bhimrecha/NO REM", Decimal("2249.00"), None, "Utilities & Bills"),
+        ("UPI/103809560173/CR/NPCIB/HDFC/bhimcashb/BHIMCA", None, Decimal("3.00"), "Refunds & Cashbacks"),
+        ("UPI/164947239493/DR/Smart /JIOP/241514726/NO REM", Decimal("1440.44"), None, "Utilities & Bills"),
+    ]
+
+    for desc, debit, credit, expected_category in records:
+        t = NormalizedTransaction(
+            id=f"t_upi_{uuid.uuid4().hex[:6]}",
+            line_number=1,
+            page_number=1,
+            date="2026-08-06",
+            date_raw="06-08-2026",
+            description=desc,
+            description_raw=desc,
+            debit=debit,
+            credit=credit,
+        )
+        res = default_hybrid_classifier.classify_transaction(t)
+        assert res.category == expected_category, f"Failed for '{desc}': got '{res.category}', expected '{expected_category}'"
+        assert res.category_confidence >= 0.85
+
+

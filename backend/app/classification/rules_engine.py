@@ -48,7 +48,7 @@ DEFAULT_RULES: List[ClassificationRule] = [
         rule_id="RULE_REFUND_01",
         category="Refunds & Cashbacks",
         subcategory="Merchant Refund",
-        keywords=["REFUND - RETAIL PURCHASE", "RETAIL PURCHASE REFUND", "REFUND", "MERCHANT REFUND", "CASHBACK", "PURCHASE REVERSAL", "REVERSAL"],
+        keywords=["REFUND - RETAIL PURCHASE", "RETAIL PURCHASE REFUND", "REFUND", "MERCHANT REFUND", "CASHBACK", "PURCHASE REVERSAL", "REVERSAL", "BHIMCASHB"],
         exclude_keywords=["FEE REVERSAL", "INTEREST REVERSAL"],
         direction="credit",
         priority=18,
@@ -548,18 +548,18 @@ DEFAULT_RULES: List[ClassificationRule] = [
         rule_id="RULE_UPI_RECHARGE_IN_01",
         category="Utilities & Bills",
         subcategory="Mobile Recharge",
-        keywords=["SMARTBUY", "JIOPAY", "JIO RECHARGE", "PAYTM RECHARGE", "PHONEPE RECHARGE",
-                  "ONEMONEY", "PHONEPAY"],
+        keywords=["SMARTBUY", "JIOPAY", "JIOP", "JIO RECHARGE", "PAYTM RECHARGE", "PHONEPE RECHARGE",
+                  "ONEMONEY", "PHONEPAY", "BHIMRECHA"],
         direction="debit",
         priority=17,
         confidence=0.90,
     ),
-    # Flipkart refund (credit from Flipkart)
+    # Retail shopping refund (credit from Flipkart, Meesho, etc.)
     ClassificationRule(
-        rule_id="RULE_UPI_FLIPKART_REFUND_01",
+        rule_id="RULE_UPI_SHOPPING_REFUND_01",
         category="Refunds & Cashbacks",
         subcategory="Merchant Refund",
-        keywords=["FLIPKART", "FLIPKA"],
+        keywords=["FLIPKART", "FLIPKA", "MEESHO"],
         direction="credit",
         priority=17,
         confidence=0.93,
@@ -572,6 +572,7 @@ class RuleEngine:
 
     def __init__(self, rules: Optional[List[ClassificationRule]] = None):
         self.rules = sorted(rules or DEFAULT_RULES, key=lambda r: r.priority, reverse=True)
+        self._classification_cache: Dict[Tuple[str, str], Optional[Tuple[str, Optional[str], float, str, List[str]]]] = {}
         # Precompile regex patterns for maximum classification throughput
         self._compiled_rules: List[Tuple[ClassificationRule, List[re.Pattern], List[Tuple[str, re.Pattern, int, int]]]] = []
         for rule in self.rules:
@@ -589,6 +590,9 @@ class RuleEngine:
     ) -> Optional[Tuple[str, Optional[str], float, str, List[str]]]:
         """Match description against precompiled rules with negative guardrails and specificity ranking."""
         upper_desc = description.upper()
+        cache_key = (upper_desc, direction)
+        if cache_key in self._classification_cache:
+            return self._classification_cache[cache_key]
 
         candidates: List[Tuple[float, ClassificationRule, List[str]]] = []
 
@@ -619,19 +623,26 @@ class RuleEngine:
                 candidates.append((spec_score, rule, matched_keywords))
 
         if not candidates:
+            if len(self._classification_cache) >= 10000:
+                self._classification_cache.clear()
+            self._classification_cache[cache_key] = None
             return None
 
         # Sort candidates primarily by specificity score (descending), secondarily by rule confidence
         candidates.sort(key=lambda c: (c[0], c[1].confidence), reverse=True)
         best_score, best_rule, best_tokens = candidates[0]
 
-        return (
+        result = (
             best_rule.category,
             best_rule.subcategory,
             best_rule.confidence,
             best_rule.rule_id,
             best_tokens,
         )
+        if len(self._classification_cache) >= 10000:
+            self._classification_cache.clear()
+        self._classification_cache[cache_key] = result
+        return result
 
 
 default_rule_engine = RuleEngine()

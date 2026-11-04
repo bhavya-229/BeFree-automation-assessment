@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import uuid
 from typing import BinaryIO, List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 import pikepdf
@@ -85,9 +86,16 @@ def execute_pipeline(
         )
         all_words.extend(native_words)
 
-    for p_num in scanned_page_nums:
-        ocr_words = default_ocr_engine.ocr_page(working_path, p_num)
-        all_words.extend(ocr_words)
+    if scanned_page_nums:
+        # Concurrent multi-threaded OCR for multi-page scanned statements
+        max_workers = min(4, len(scanned_page_nums))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_page = {
+                executor.submit(default_ocr_engine.ocr_page, working_path, p_num): p_num
+                for p_num in scanned_page_nums
+            }
+            for future in as_completed(future_to_page):
+                all_words.extend(future.result())
 
     all_words.sort(key=lambda w: (w.page_number, w.y0, w.x0))
 

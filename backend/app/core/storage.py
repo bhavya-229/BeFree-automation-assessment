@@ -1,8 +1,9 @@
 """Persistent SQLite statement repository backed by SQLAlchemy 2 with WAL mode."""
 
+from datetime import datetime, timezone
 import json
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -10,7 +11,7 @@ from app.schemas.transaction import NormalizedTransaction, ClassificationSource
 from app.pipeline.pdf_type import DocumentTypeReport
 from app.pipeline.validate.reconcile import ReconciliationSummary
 from app.pipeline.parse.metadata import StatementMetadata
-from app.core.database import SessionLocal, StatementModel, TransactionModel, init_db
+from app.core.database import SessionLocal, StatementModel, TransactionModel, UserRuleModel, init_db
 
 
 class StatementRecord(BaseModel):
@@ -241,6 +242,26 @@ class SqliteStatementStore:
                 flags.remove("LOW_CONFIDENCE")
             tx_model.flags_json = json.dumps(flags)
 
+            # Active Learning: Upsert payee description to user_rules table
+            desc_to_learn = tx_model.description.strip().upper()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            existing_rule = session.scalars(
+                select(UserRuleModel).where(UserRuleModel.pattern == desc_to_learn)
+            ).first()
+            if existing_rule:
+                existing_rule.category = new_category
+                existing_rule.hit_count += 1
+            else:
+                session.add(
+                    UserRuleModel(
+                        pattern=desc_to_learn,
+                        category=new_category,
+                        subcategory=None,
+                        created_at=now_iso,
+                        hit_count=1,
+                    )
+                )
+
             session.commit()
 
             # Return updated Pydantic object
@@ -287,6 +308,40 @@ class SqliteStatementStore:
             session.delete(stmt)
             session.commit()
             return True
+
+    def learn_user_rule(
+        self, pattern: str, category: str, subcategory: Optional[str] = None
+    ) -> None:
+        """Upsert a user correction pattern to active learning memory."""
+        clean_pat = pattern.strip().upper()
+        if not clean_pat or len(clean_pat) < 3:
+            return
+
+        with SessionLocal() as session:
+            existing = session.scalars(
+                select(UserRuleModel).where(UserRuleModel.pattern == clean_pat)
+            ).first()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            if existing:
+                existing.category = category
+                existing.subcategory = subcategory
+                existing.hit_count += 1
+            else:
+                new_rule = UserRuleModel(
+                    pattern=clean_pat,
+                    category=category,
+                    subcategory=subcategory,
+                    created_at=now_iso,
+                    hit_count=1,
+                )
+                session.add(new_rule)
+            session.commit()
+
+    def get_user_rules(self) -> Dict[str, Tuple[str, Optional[str]]]:
+        """Fetch all active user correction rules as a lookup dictionary {pattern: (category, subcategory)}."""
+        with SessionLocal() as session:
+            rules = session.scalars(select(UserRuleModel)).all()
+            return {r.pattern: (r.category, r.subcategory) for r in rules}
 
 
 # Global persistent storage singleton

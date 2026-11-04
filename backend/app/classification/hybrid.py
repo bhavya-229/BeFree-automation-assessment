@@ -30,9 +30,13 @@ class HybridClassifier:
         self.ml_min_prob = ml_min_prob
         self.ml_min_margin = ml_min_margin
 
-    def classify_transaction(self, txn: NormalizedTransaction) -> NormalizedTransaction:
-        """Classify a single transaction obeying the hierarchy: MANUAL -> RULE -> ML -> UNCLASSIFIED."""
-        # 1. Manual user edits are authoritative and permanent
+    def classify_transaction(
+        self,
+        txn: NormalizedTransaction,
+        user_rules: Optional[Dict[str, Tuple[str, Optional[str]]]] = None,
+    ) -> NormalizedTransaction:
+        """Classify a single transaction obeying the hierarchy: MANUAL -> ACTIVE LEARNING -> RULE -> ML -> UNCLASSIFIED."""
+        # 1. Manual user edits on this specific transaction are authoritative and permanent
         if txn.user_edited and txn.category_source == ClassificationSource.MANUAL:
             return txn
 
@@ -48,6 +52,31 @@ class HybridClassifier:
         direction = "debit" if txn.debit is not None and txn.debit > 0 else (
             "credit" if txn.credit is not None and txn.credit > 0 else "both"
         )
+
+        # 1.5 Active Learning: Layer 0 User Correction Memory
+        if user_rules is None:
+            try:
+                from app.core.storage import statement_store
+                user_rules = statement_store.get_user_rules()
+            except Exception:
+                user_rules = {}
+
+        clean_upper = clean_desc.upper()
+        raw_upper = raw_desc.upper()
+        matched_user_cat = user_rules.get(clean_upper) or user_rules.get(raw_upper)
+        if not matched_user_cat and user_rules:
+            for pat, (u_cat, u_subcat) in user_rules.items():
+                if pat in clean_upper or pat in raw_upper:
+                    matched_user_cat = (u_cat, u_subcat)
+                    break
+
+        if matched_user_cat:
+            txn.category = matched_user_cat[0]
+            txn.subcategory = matched_user_cat[1]
+            txn.category_source = ClassificationSource.MANUAL
+            txn.category_confidence = 1.0
+            txn.rule_id = "USER_LEARNED_RULE"
+            return txn
 
         # 2. Rule Engine check (Layer 1)
         rule_match = self.rule_engine.classify(clean_desc, direction=direction)
@@ -126,8 +155,13 @@ class HybridClassifier:
     def classify_all(
         self, transactions: List[NormalizedTransaction]
     ) -> List[NormalizedTransaction]:
-        """Classify a batch of normalized transactions."""
-        return [self.classify_transaction(t) for t in transactions]
+        """Classify a batch of normalized transactions with batch-cached user rules."""
+        try:
+            from app.core.storage import statement_store
+            cached_user_rules = statement_store.get_user_rules()
+        except Exception:
+            cached_user_rules = {}
+        return [self.classify_transaction(t, user_rules=cached_user_rules) for t in transactions]
 
     def evaluate_on_benchmark(
         self, benchmark_samples: List[Tuple[str, str, str]]

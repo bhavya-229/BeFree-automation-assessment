@@ -1,5 +1,6 @@
 """Text cleaning, payment channel extraction, and merchant canonicalization."""
 
+import functools
 import re
 from typing import Optional, Tuple
 
@@ -49,6 +50,10 @@ MERCHANT_ALIASES = {
     "M&S": "MARKS AND SPENCER",
     "SAINSBURY": "SAINSBURYS",
     "SAINSBURY'S": "SAINSBURYS",
+    # India / UPI aliases
+    "FLIPKA": "FLIPKART",
+    "PHARME": "PHARMEASY",
+    "AMAZONPAY": "AMAZON",
 }
 
 # Payment intermediary / gateway prefixes that wrap the real downstream merchant
@@ -63,6 +68,7 @@ PROCESSOR_PATTERNS = [
 ]
 
 
+@functools.lru_cache(maxsize=4096)
 def clean_description(raw_description: str) -> Tuple[str, Optional[str], Optional[str]]:
     """Clean transaction description, strip payment processors, and extract payment rail channel and ref number."""
     if not raw_description:
