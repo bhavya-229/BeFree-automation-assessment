@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir \
 
 COPY backend/app ./app
 COPY backend/app/classification/taxonomy.yaml ./app/classification/taxonomy.yaml
+COPY data/samples ./data/samples
+RUN mkdir -p /app/data/uploads
 
 EXPOSE 8000
 

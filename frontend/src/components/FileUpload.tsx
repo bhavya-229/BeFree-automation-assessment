@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, AlertCircle, Loader2, Sparkles, FileText, ShieldCheck, Cpu, Calculator, FileSpreadsheet, Download, Lock, CheckCircle2, Clock, ArrowUpRight, Layers } from 'lucide-react';
 import { uploadStatement, loadSampleStatement, getSampleDownloadUrl, ApiError } from '../lib/api';
 import { PasswordDialog } from './PasswordDialog';
@@ -16,7 +16,7 @@ export interface BatchQueueItem {
   record?: StatementRecord;
 }
 
-type SampleKey = 'cba' | 'barclays' | 'westpac' | 'sbi' | 'encrypted';
+type SampleKey = 'cba' | 'barclays' | 'westpac' | 'sbi' | 'encrypted' | 'au100';
 
 interface SampleOption {
   key: SampleKey;
@@ -28,6 +28,7 @@ interface SampleOption {
 }
 
 const SAMPLE_OPTIONS: SampleOption[] = [
+  { key: 'au100', label: 'AU 100 Scanned (OCR)', country: 'AU', currency: 'AUD', badgeColor: 'text-indigo-700 bg-indigo-50 border-indigo-200', hint: '100 Txns • 3 Pages' },
   { key: 'cba', label: 'CommBank', country: 'AU', currency: 'AUD', badgeColor: 'text-amber-700 bg-amber-50 border-amber-200' },
   { key: 'barclays', label: 'Barclays', country: 'UK', currency: 'GBP', badgeColor: 'text-blue-700 bg-blue-50 border-blue-200' },
   { key: 'westpac', label: 'Westpac', country: 'AU', currency: 'AUD', badgeColor: 'text-rose-700 bg-rose-50 border-rose-200' },
@@ -41,7 +42,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
   const [loadingSample, setLoadingSample] = useState<SampleKey | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadStage, setUploadStage] = useState<string>('Ready');
+  const [slowLoading, setSlowLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let timer: any;
+    if (isLoading || loadingSample) {
+      timer = setTimeout(() => {
+        setSlowLoading(true);
+      }, 5000);
+    } else {
+      setSlowLoading(false);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isLoading, loadingSample]);
 
   // Batch Queue State
   const [batchQueue, setBatchQueue] = useState<BatchQueueItem[]>([]);
@@ -280,6 +296,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
             <h3 className="text-lg font-bold text-[#1B1637]">
               {isLoading ? uploadStage : (batchProcessing ? 'Processing Batch Queue...' : 'Upload Bank Statement PDFs')}
             </h3>
+            {slowLoading && (
+              <p className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg max-w-sm mx-auto animate-pulse">
+                Cloud backend waking up (Render free tier may take up to 30s on first load)...
+              </p>
+            )}
             <p className="text-xs text-[#5B5875] max-w-md mx-auto">
               Drag and drop statement files here, or click to browse. Supports single or multi-file batch uploads (digital, scanned, or hybrid multi-page PDFs up to 25 MB).
             </p>

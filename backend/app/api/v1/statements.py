@@ -196,6 +196,7 @@ SAMPLE_MAP = {
     "westpac": ("westpac_australian_statement.pdf", "Westpac_AU_November_2023.pdf"),
     "sbi": ("sbi_india_statement.pdf", "SBI_India_October_2023.pdf"),
     "encrypted": ("encrypted_cba_statement.pdf", "Protected_CBA_Statement.pdf"),
+    "au100": ("au_100_scanned_statement.pdf", "AU_100_transactions_scanned.pdf"),
 }
 
 
@@ -344,9 +345,21 @@ async def export_statement_xlsx(statement_id: str):
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found.")
 
+    detected_bank = (
+        record.metadata.bank_name
+        if record.metadata and record.metadata.bank_name
+        else "Bank Statement"
+    )
+    detected_account = (
+        record.metadata.account_number
+        if record.metadata and record.metadata.account_number
+        else None
+    )
+
     xlsx_bytes = export_transactions_to_xlsx(
         record.transactions,
-        bank_name="Bank Statement",
+        bank_name=detected_bank,
+        account_number=detected_account,
         quality_score=record.reconciliation_summary.quality_score,
     )
     filename = f"{record.filename.rsplit('.', 1)[0]}_export.xlsx"

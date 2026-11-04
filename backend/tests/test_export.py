@@ -76,13 +76,15 @@ def test_export_transactions_to_csv(sample_transactions_for_export):
     assert reader[0][1] == "Description"
     assert reader[0][3] == "Debit"
     assert reader[0][4] == "Credit"
-    assert reader[0][6] == "Category"
+    assert reader[0][6] == "Currency"
+    assert reader[0][7] == "Category"
 
     # Row 1 check
     assert reader[1][0] == "2023-10-03"
     assert reader[1][1] == "WOOLWORTHS SYDNEY"
     assert reader[1][3] == "85.50"
-    assert reader[1][6] == "Groceries"
+    assert reader[1][6] == "AUD"
+    assert reader[1][7] == "Groceries"
 
     # Row 2 check (Formula injection neutralized)
     assert reader[2][1] == "'=cmd|'/C calc'!A0"

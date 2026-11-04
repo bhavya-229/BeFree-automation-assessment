@@ -129,8 +129,10 @@ export const Header: React.FC<HeaderProps> = ({
                     'Salary & Wages', 'Groceries', 'Dining & Restaurants', 'Utilities & Bills',
                     'Transport & Travel', 'Rent & Housing', 'Shopping & Retail', 'Healthcare & Pharmacy',
                     'Interest & Investments', 'Refunds & Cashbacks', 'Entertainment & Subscriptions',
-                    'Loan & Credit Payments', 'Fees & Charges', 'Cash Withdrawal', 'Transfers In',
-                    'Transfers Out', 'Insurance', 'Other Income', 'Other / Unclassified'
+                    'Loan & Credit Payments', 'Taxes & Government', 'Education & Childcare',
+                    'Donations & Charity', 'Personal Care', 'Investments & Wealth',
+                    'Fees & Charges', 'Cash Withdrawal', 'Transfers In', 'Transfers Out',
+                    'Insurance', 'Other Income', 'Other / Unclassified'
                   ].map((cat) => (
                     <div key={cat} className="p-2 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700">
                       {cat}

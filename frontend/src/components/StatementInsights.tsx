@@ -13,6 +13,14 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
   recon,
   currency = 'AUD',
 }) => {
+  const parseNum = (val: unknown): number => {
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    if (!val) return 0;
+    const cleaned = String(val).replace(/,/g, '').trim();
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   // Aggregate spending by category
   const categoryTotals: Record<string, { count: number; totalDebit: number; totalCredit: number }> = {};
 
@@ -23,14 +31,14 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
     }
     categoryTotals[cat].count += 1;
     if (t.debit) {
-      categoryTotals[cat].totalDebit += parseFloat(t.debit.replace(/,/g, ''));
+      categoryTotals[cat].totalDebit += parseNum(t.debit);
     }
     if (t.credit) {
-      categoryTotals[cat].totalCredit += parseFloat(t.credit.replace(/,/g, ''));
+      categoryTotals[cat].totalCredit += parseNum(t.credit);
     }
   });
 
-  const totalDebitOverall = parseFloat(recon.total_debits.replace(/,/g, '')) || 1;
+  const totalDebitOverall = parseNum(recon.total_debits) || 1;
 
   const sortedCategories = Object.entries(categoryTotals).sort(
     (a, b) => b[1].totalDebit - a[1].totalDebit
@@ -39,7 +47,7 @@ export const StatementInsights: React.FC<StatementInsightsProps> = ({
   // Financial summary metrics
   const debits = transactions
     .filter((t) => t.debit)
-    .map((t) => parseFloat(t.debit!.replace(/,/g, '')));
+    .map((t) => parseNum(t.debit));
   const maxDebit = debits.length > 0 ? Math.max(...debits) : 0;
   const avgDebit = debits.length > 0 ? debits.reduce((acc, v) => acc + v, 0) / debits.length : 0;
   const unclassifiedCount = transactions.filter(
