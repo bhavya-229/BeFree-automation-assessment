@@ -20,11 +20,15 @@ class HybridClassifier:
         ml_classifier: Optional[MLClassifier] = None,
         rule_threshold: float = settings.RULE_CONF_THRESHOLD,
         ml_threshold: float = settings.ML_CONF_THRESHOLD,
+        ml_min_prob: float = settings.ML_MIN_PROB_THRESHOLD,
+        ml_min_margin: float = settings.ML_MIN_MARGIN_RATIO,
     ):
         self.rule_engine = rule_engine or default_rule_engine
         self.ml_classifier = ml_classifier or default_ml_classifier
         self.rule_threshold = rule_threshold
         self.ml_threshold = ml_threshold
+        self.ml_min_prob = ml_min_prob
+        self.ml_min_margin = ml_min_margin
 
     def classify_transaction(self, txn: NormalizedTransaction) -> NormalizedTransaction:
         """Classify a single transaction obeying the hierarchy: MANUAL -> RULE -> ML -> UNCLASSIFIED."""
@@ -94,8 +98,17 @@ class HybridClassifier:
                 txn.rule_id = "HEURISTIC_PAYROLL"
                 return txn
 
-        # 5. Standard ML Model prediction
-        if ml_prob >= self.ml_threshold:
+        # 5. Standard ML Model prediction with relative margin arbitration
+        margin_ratio = (
+            round(top3[0]["probability"] / (top3[1]["probability"] + 1e-5), 2)
+            if len(top3) > 1 and top3[1]["probability"] > 0
+            else 10.0
+        )
+        is_confident = (
+            ml_prob >= self.ml_threshold
+            or (ml_prob >= self.ml_min_prob and margin_ratio >= self.ml_min_margin)
+        )
+        if is_confident and ml_cat != "Other / Unclassified":
             txn.category = ml_cat
             txn.subcategory = None
             txn.category_source = ClassificationSource.ML
@@ -136,14 +149,24 @@ class HybridClassifier:
             y_rule_pred.append(rule_cat)
 
             # 2. ML-only
-            ml_cat, ml_prob, _ = self.ml_classifier.predict(clean)
+            ml_cat, ml_prob, ml_top3 = self.ml_classifier.predict(clean)
             y_ml_pred.append(ml_cat)
 
-            # 3. Hybrid
+            # 3. Hybrid with relative margin arbitration
+            ml_margin = (
+                round(ml_top3[0]["probability"] / (ml_top3[1]["probability"] + 1e-5), 2)
+                if len(ml_top3) > 1 and ml_top3[1]["probability"] > 0
+                else 10.0
+            )
+            is_ml_confident = (
+                ml_prob >= self.ml_threshold
+                or (ml_prob >= self.ml_min_prob and ml_margin >= self.ml_min_margin)
+            )
+
             if r_match and r_match[2] >= self.rule_threshold:
                 hybrid_cat = r_match[0]
                 accepted_without_review += 1
-            elif ml_prob >= self.ml_threshold:
+            elif is_ml_confident and ml_cat != "Other / Unclassified":
                 hybrid_cat = ml_cat
                 accepted_without_review += 1
             else:

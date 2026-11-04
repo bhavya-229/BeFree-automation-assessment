@@ -36,7 +36,9 @@ class Settings(BaseSettings):
 
     # Classification Thresholds
     RULE_CONF_THRESHOLD: float = 0.80
-    ML_CONF_THRESHOLD: float = 0.60
+    ML_CONF_THRESHOLD: float = 0.40
+    ML_MIN_PROB_THRESHOLD: float = 0.22
+    ML_MIN_MARGIN_RATIO: float = 1.80
 
     # CORS (allow wildcard in production for cloud deployment)
     CORS_ORIGINS: List[str] = [
