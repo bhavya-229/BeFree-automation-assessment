@@ -38,9 +38,8 @@ yarn-error.log*
 
 # Environment & Data
 .env
-*.sqlite
-*.sqlite3
-*.db
+*.sqlite*
+*.db*
 *.log
 data/uploads/*
 !data/uploads/.gitkeep

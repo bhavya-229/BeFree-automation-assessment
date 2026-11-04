@@ -1,11 +1,19 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, AlertCircle, Loader2, Sparkles, FileText, ShieldCheck, Cpu, Calculator, FileSpreadsheet, Download, Lock } from 'lucide-react';
+import { UploadCloud, AlertCircle, Loader2, Sparkles, FileText, ShieldCheck, Cpu, Calculator, FileSpreadsheet, Download, Lock, CheckCircle2, Clock, ArrowUpRight, Layers } from 'lucide-react';
 import { uploadStatement, loadSampleStatement, getSampleDownloadUrl, ApiError } from '../lib/api';
 import { PasswordDialog } from './PasswordDialog';
 import type { StatementRecord } from '../types';
 
 interface FileUploadProps {
   onUploadSuccess: (record: StatementRecord) => void;
+}
+
+export interface BatchQueueItem {
+  id: string;
+  file: File;
+  status: 'pending' | 'processing' | 'done' | 'error' | 'encrypted';
+  errorMessage?: string;
+  record?: StatementRecord;
 }
 
 type SampleKey = 'cba' | 'barclays' | 'westpac' | 'sbi' | 'encrypted';
@@ -35,13 +43,72 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
   const [uploadStage, setUploadStage] = useState<string>('Ready');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Batch Queue State
+  const [batchQueue, setBatchQueue] = useState<BatchQueueItem[]>([]);
+  const [batchProcessing, setBatchProcessing] = useState(false);
+
   // Password Dialog State
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingBatchItemId, setPendingBatchItemId] = useState<string | null>(null);
   const [pendingSampleKey, setPendingSampleKey] = useState<SampleKey | null>(null);
   const [passwordFilename, setPasswordFilename] = useState<string>('');
+
+  const handleFiles = async (files: File[]) => {
+    const validFiles = files.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (validFiles.length === 0) {
+      setErrorMessage('Please upload valid PDF documents.');
+      return;
+    }
+
+    if (validFiles.length === 1) {
+      handleFile(validFiles[0]);
+      return;
+    }
+
+    // Initialize Batch Queue
+    setErrorMessage(null);
+    const initialItems: BatchQueueItem[] = validFiles.map((file, idx) => ({
+      id: `${Date.now()}-${idx}`,
+      file,
+      status: 'pending',
+    }));
+
+    setBatchQueue(initialItems);
+    setBatchProcessing(true);
+
+    // Process items in sequence
+    for (let i = 0; i < initialItems.length; i++) {
+      const item = initialItems[i];
+      setBatchQueue((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, status: 'processing' } : it))
+      );
+
+      try {
+        const record = await uploadStatement(item.file);
+        setBatchQueue((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, status: 'done', record } : it))
+        );
+      } catch (err: any) {
+        if (err instanceof ApiError && (err.code === 'PDF_ENCRYPTED' || err.code === 'WRONG_PASSWORD')) {
+          setBatchQueue((prev) =>
+            prev.map((it) =>
+              it.id === item.id ? { ...it, status: 'encrypted', errorMessage: err.message } : it
+            )
+          );
+        } else {
+          setBatchQueue((prev) =>
+            prev.map((it) =>
+              it.id === item.id ? { ...it, status: 'error', errorMessage: err.message } : it
+            )
+          );
+        }
+      }
+    }
+    setBatchProcessing(false);
+  };
 
   const handleFile = async (file: File, password?: string) => {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -62,6 +129,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
       const record = await uploadStatement(file, password);
       setPasswordDialogOpen(false);
       setPendingFile(null);
+      setPendingBatchItemId(null);
       onUploadSuccess(record);
     } catch (err: any) {
       if (err instanceof ApiError && (err.code === 'PDF_ENCRYPTED' || err.code === 'WRONG_PASSWORD')) {
@@ -81,6 +149,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
       setPasswordLoading(false);
       setUploadStage('Ready');
     }
+  };
+
+  const handleBatchItemUnlock = (item: BatchQueueItem) => {
+    setPendingFile(item.file);
+    setPendingBatchItemId(item.id);
+    setPasswordFilename(item.file.name);
+    setPasswordError(null);
+    setPasswordDialogOpen(true);
   };
 
   const handleSample = async (sampleKey: SampleKey, password?: string) => {
@@ -115,7 +191,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
     setPasswordError(null);
 
     if (pendingFile) {
-      await handleFile(pendingFile, password);
+      try {
+        const record = await uploadStatement(pendingFile, password);
+        setPasswordDialogOpen(false);
+        if (pendingBatchItemId) {
+          setBatchQueue((prev) =>
+            prev.map((it) => (it.id === pendingBatchItemId ? { ...it, status: 'done', record } : it))
+          );
+        }
+        setPendingFile(null);
+        setPendingBatchItemId(null);
+        onUploadSuccess(record);
+      } catch (err: any) {
+        setPasswordError(err.message || 'Decryption failed.');
+      } finally {
+        setPasswordLoading(false);
+      }
     } else if (pendingSampleKey) {
       await handleSample(pendingSampleKey, password);
     }
@@ -126,6 +217,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
     setPasswordLoading(false);
     setPasswordError(null);
     setPendingFile(null);
+    setPendingBatchItemId(null);
     setPendingSampleKey(null);
   };
 
@@ -133,7 +225,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFile(e.dataTransfer.files[0]);
+      handleFiles(Array.from(e.dataTransfer.files));
     }
   };
 
@@ -169,14 +261,15 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
         <input
           type="file"
           ref={fileInputRef}
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+          multiple
+          onChange={(e) => e.target.files && handleFiles(Array.from(e.target.files))}
           accept="application/pdf"
           className="hidden"
         />
 
         <div className="flex flex-col items-center justify-center space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#2E2C8F] shadow-inner">
-            {isLoading ? (
+            {isLoading || batchProcessing ? (
               <Loader2 className="w-8 h-8 animate-spin text-[#2E2C8F]" />
             ) : (
               <UploadCloud className="w-8 h-8 text-[#2E2C8F]" />
@@ -185,10 +278,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
 
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-[#1B1637]">
-              {isLoading ? uploadStage : 'Upload Bank Statement PDF'}
+              {isLoading ? uploadStage : (batchProcessing ? 'Processing Batch Queue...' : 'Upload Bank Statement PDFs')}
             </h3>
             <p className="text-xs text-[#5B5875] max-w-md mx-auto">
-              Drag and drop your statement file here, or click to browse. Supports digital, scanned, or hybrid multi-page PDFs (up to 25 MB).
+              Drag and drop statement files here, or click to browse. Supports single or multi-file batch uploads (digital, scanned, or hybrid multi-page PDFs up to 25 MB).
             </p>
           </div>
 
@@ -196,10 +289,107 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
             type="button"
             className="inline-flex items-center px-5 py-2.5 text-xs font-bold rounded-lg text-white bg-[#2E2C8F] hover:bg-[#25237A] shadow-xs transition"
           >
-            Select PDF File
+            Select Statement Files (Single or Batch)
           </button>
         </div>
       </div>
+
+      {/* Batch Intake Queue Card */}
+      {batchQueue.length > 0 && (
+        <div className="bg-white border border-[#E4E2EC] rounded-2xl p-5 shadow-xs space-y-4 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[#2E2C8F]">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-[#1B1637]">Batch Processing Queue</h3>
+                <p className="text-xs text-[#5B5875]">
+                  {batchQueue.filter((i) => i.status === 'done').length} of {batchQueue.length} statements processed
+                </p>
+              </div>
+            </div>
+            {batchProcessing ? (
+              <div className="flex items-center space-x-2 text-xs font-semibold text-[#2E2C8F]">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Processing batch...</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setBatchQueue([])}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+              >
+                Clear Queue
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {batchQueue.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:border-[#2E2C8F] transition"
+              >
+                <div className="flex items-center space-x-3">
+                  <FileText className="w-4 h-4 text-slate-400" />
+                  <div>
+                    <p className="text-xs font-bold text-[#1B1637]">{item.file.name}</p>
+                    <p className="text-[10px] text-[#5B5875]">{(item.file.size / 1024).toFixed(1)} KB</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  {item.status === 'pending' && (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                      <Clock className="w-3 h-3" />
+                      <span>Queued</span>
+                    </span>
+                  )}
+                  {item.status === 'processing' && (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Extracting...</span>
+                    </span>
+                  )}
+                  {item.status === 'encrypted' && (
+                    <button
+                      type="button"
+                      onClick={() => handleBatchItemUnlock(item)}
+                      className="inline-flex items-center space-x-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-full border border-purple-200"
+                    >
+                      <Lock className="w-3 h-3" />
+                      <span>Unlock Password</span>
+                    </button>
+                  )}
+                  {item.status === 'done' && item.record && (
+                    <div className="flex items-center space-x-2">
+                      <span className="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>{item.record.transactions.length} Txns • {item.record.reconciliation_summary.quality_score.toFixed(0)}% Score</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onUploadSuccess(item.record!)}
+                        className="inline-flex items-center space-x-1 text-xs font-bold text-white bg-[#2E2C8F] hover:bg-[#25237A] px-3 py-1 rounded-lg transition"
+                      >
+                        <span>Open</span>
+                        <ArrowUpRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                  {item.status === 'error' && (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
+                      <AlertCircle className="w-3 h-3 text-red-600" />
+                      <span>{item.errorMessage || 'Failed'}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Demo Statement Selector & Direct Downloads */}
       <div className="bg-[#FAF7F0] border border-[#E4E2EC] rounded-2xl p-5 space-y-3">

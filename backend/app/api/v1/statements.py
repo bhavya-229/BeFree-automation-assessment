@@ -23,7 +23,7 @@ from app.pipeline.parse.metadata import extract_metadata_from_text
 from app.pipeline.validate.reconcile import validate_and_reconcile_transactions
 from app.classification.hybrid import default_hybrid_classifier
 from app.schemas.transaction import NormalizedTransaction, ClassificationSource
-from app.core.storage import statement_store, StatementRecord
+from app.core.storage import statement_store, StatementRecord, StatementSummary
 from app.export.csv_exporter import export_transactions_to_csv
 from app.export.xlsx_exporter import export_transactions_to_xlsx
 from app.errors import ProcessingError
@@ -224,6 +224,12 @@ async def download_sample_pdf(sample_key: str):
     )
 
 
+@router.get("", response_model=List[StatementSummary])
+async def list_statements():
+    """List all processed statements in descending chronological order."""
+    return statement_store.list_summaries()
+
+
 @router.get("/{statement_id}")
 async def get_statement_details(statement_id: str):
     """Retrieve processed statement metadata and summary."""
@@ -231,6 +237,15 @@ async def get_statement_details(statement_id: str):
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found.")
     return record
+
+
+@router.delete("/{statement_id}")
+async def delete_statement(statement_id: str):
+    """Delete a processed statement and all its transactions."""
+    success = statement_store.delete(statement_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found.")
+    return {"status": "deleted", "id": statement_id}
 
 
 @router.get("/{statement_id}/transactions")

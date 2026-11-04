@@ -96,3 +96,16 @@ export interface StatementRecord {
   metadata?: StatementMetadata;
   created_at: string;
 }
+
+export interface StatementSummary {
+  id: string;
+  filename: string;
+  file_size_bytes: number;
+  page_count: number;
+  created_at: string;
+  currency: string;
+  transaction_count: number;
+  quality_score: number;
+  statement_reconciled: boolean;
+  bank_name?: string | null;
+}

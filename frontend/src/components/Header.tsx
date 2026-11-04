@@ -1,13 +1,21 @@
 import React, { useState } from 'react';
-import { ShieldCheck, BookOpen, Layers, HelpCircle, X, CheckCircle2, Lock } from 'lucide-react';
+import { ShieldCheck, BookOpen, Layers, HelpCircle, X, CheckCircle2, Lock, Database } from 'lucide-react';
+import { HistoryModal } from './HistoryModal';
+import type { StatementRecord } from '../types';
 
 interface HeaderProps {
   activeView: 'workspace' | 'rules' | 'help';
   onViewChange: (view: 'workspace' | 'rules' | 'help') => void;
+  onSelectStatement?: (record: StatementRecord) => void;
+  activeStatementId?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onViewChange }) => {
-  const [modalOpen, setModalOpen] = useState<'rules' | 'help' | null>(null);
+export const Header: React.FC<HeaderProps> = ({
+  onViewChange,
+  onSelectStatement,
+  activeStatementId,
+}) => {
+  const [modalOpen, setModalOpen] = useState<'rules' | 'help' | 'history' | null>(null);
 
   return (
     <>
@@ -35,7 +43,16 @@ export const Header: React.FC<HeaderProps> = ({ onViewChange }) => {
           </div>
 
           {/* Navigation Links */}
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <button
+              type="button"
+              onClick={() => setModalOpen('history')}
+              className="inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-[#2E2C8F] bg-indigo-50/70 border border-indigo-100 hover:bg-indigo-100/70 transition shadow-2xs"
+            >
+              <Database className="w-3.5 h-3.5 text-[#2E2C8F]" />
+              <span>History</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setModalOpen('rules')}
@@ -62,6 +79,19 @@ export const Header: React.FC<HeaderProps> = ({ onViewChange }) => {
           </div>
         </div>
       </header>
+
+      {/* History Modal */}
+      <HistoryModal
+        isOpen={modalOpen === 'history'}
+        onClose={() => setModalOpen(null)}
+        onSelectStatement={(rec) => {
+          if (onSelectStatement) {
+            onSelectStatement(rec);
+            onViewChange('workspace');
+          }
+        }}
+        activeStatementId={activeStatementId}
+      />
 
       {/* Rules & Taxonomy Modal */}
       {modalOpen === 'rules' && (

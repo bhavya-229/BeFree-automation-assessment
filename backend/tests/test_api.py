@@ -99,3 +99,30 @@ def test_encrypted_pdf_handling(client):
     assert len(data3["transactions"]) == 10
     assert data3["reconciliation_summary"]["reconciled_count"] == 10
     assert data3["reconciliation_summary"]["quality_score"] == 100.0
+
+
+def test_statement_history_and_persistence(client, sample_digital_pdf: Path):
+    """Verify SQLite persistence: listing statements, querying details, and deleting."""
+    # 1. Process statement
+    with open(sample_digital_pdf, "rb") as f:
+        upload_resp = client.post(
+            "/api/v1/statements",
+            files={"file": ("history_test.pdf", f, "application/pdf")},
+        )
+    assert upload_resp.status_code == 201
+    stmt_id = upload_resp.json()["id"]
+
+    # 2. List statements from SQLite
+    list_resp = client.get("/api/v1/statements")
+    assert list_resp.status_code == 200
+    summaries = list_resp.json()
+    assert any(s["id"] == stmt_id for s in summaries)
+
+    # 3. Delete statement
+    del_resp = client.delete(f"/api/v1/statements/{stmt_id}")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["status"] == "deleted"
+
+    # 4. Verify 404 after deletion
+    get_resp = client.get(f"/api/v1/statements/{stmt_id}")
+    assert get_resp.status_code == 404

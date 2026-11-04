@@ -14,6 +14,8 @@ export const App: React.FC = () => {
       <Header
         activeView={activeView}
         onViewChange={(view) => setActiveView(view)}
+        onSelectStatement={(rec) => setStatement(rec)}
+        activeStatementId={statement?.id}
       />
 
       <main className="flex-1 pb-16">

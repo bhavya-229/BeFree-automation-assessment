@@ -1,4 +1,4 @@
-import type { StatementRecord, NormalizedTransaction } from '../types';
+import type { StatementRecord, StatementSummary, NormalizedTransaction } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -36,6 +36,23 @@ export async function uploadStatement(file: File, password?: string): Promise<St
   }
 
   return res.json();
+}
+
+export async function listStatements(): Promise<StatementSummary[]> {
+  const res = await fetch(`${API_BASE}/statements`);
+  if (!res.ok) {
+    throw new Error('Failed to list statements.');
+  }
+  return res.json();
+}
+
+export async function deleteStatement(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/statements/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error('Failed to delete statement.');
+  }
 }
 
 export async function getStatement(id: string): Promise<StatementRecord> {
