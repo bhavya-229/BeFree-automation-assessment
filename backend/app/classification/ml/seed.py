@@ -92,6 +92,82 @@ TRAINING_SAMPLES: List[Tuple[str, str, str]] = [
     # Interest Earned (credit)
     ("CREDIT INTEREST PAID", "Interest & Investments", "credit"),
     ("INTEREST EARNED SAVER ACCOUNT", "Interest & Investments", "credit"),
+
+    # Rent & Housing (debit)
+    ("RENT PAYMENT HARBOUR PROPERTY", "Rent & Housing", "debit"),
+    ("RESIDENTIAL LEASE RENT PAYMENT", "Rent & Housing", "debit"),
+    ("MORTGAGE REPAYMENT HOME LOAN", "Rent & Housing", "debit"),
+    ("BODY CORPORATE STRATA LEVY", "Rent & Housing", "debit"),
+    ("REAL ESTATE RENT DIRECT DEBIT", "Rent & Housing", "debit"),
+
+    # Transfers In (credit)
+    ("PAYID TRANSFER RECEIVED FROM TONY", "Transfers In", "credit"),
+    ("OSKO PAYMENT RECEIVED SETTLEMENT", "Transfers In", "credit"),
+    ("TRANSFER FROM SAVINGS ACCOUNT", "Transfers In", "credit"),
+    ("DIRECT CREDIT P2P TRANSFER", "Transfers In", "credit"),
+
+    # Transfers Out (debit)
+    ("TRANSFER TO SAVINGS MONTHLY", "Transfers Out", "debit"),
+    ("OSKO TRANSFER TO EMILY", "Transfers Out", "debit"),
+    ("NETBANK INTERNAL TRANSFER", "Transfers Out", "debit"),
+    ("TRANSFER TO INVESTMENT SAVER", "Transfers Out", "debit"),
+
+    # Refunds & Cashbacks (credit)
+    ("REFUND RETAIL PURCHASE AMAZON", "Refunds & Cashbacks", "credit"),
+    ("MERCHANT REFUND REVERSAL TARGET", "Refunds & Cashbacks", "credit"),
+    ("CASHBACK REBATE PROMOTION", "Refunds & Cashbacks", "credit"),
+    ("CARD PURCHASE REFUND STORE", "Refunds & Cashbacks", "credit"),
+
+    # Insurance (debit)
+    ("INSURANCE PREMIUM MONTHLY CHARGE", "Insurance", "debit"),
+    ("BUPA HEALTH INSURANCE PREMIUM", "Insurance", "debit"),
+    ("MEDIBANK PRIVATE HEALTH D/D", "Insurance", "debit"),
+    ("ALLIANZ CAR INSURANCE ANNUAL", "Insurance", "debit"),
+    ("NRMA COMPREHENSIVE INSURANCE", "Insurance", "debit"),
+    ("AAMI HOME AND CONTENTS POLICY", "Insurance", "debit"),
+
+    # Merchants & Lines from Synthetic Dataset (Global / US / AU / UK)
+    ("TACO BELL FAST FOOD", "Dining & Restaurants", "debit"),
+    ("CHIPOTLE MEXICAN GRILL", "Dining & Restaurants", "debit"),
+    ("BURGER KING MEAL", "Dining & Restaurants", "debit"),
+    ("PANERA BREAD BAKERY", "Dining & Restaurants", "debit"),
+    ("APPLEBEES NEIGHBORHOOD GRILL", "Dining & Restaurants", "debit"),
+    ("STEAM ONLINE GAME STORE", "Entertainment & Subscriptions", "debit"),
+    ("HULU MONTHLY SUBSCRIPTION", "Entertainment & Subscriptions", "debit"),
+    ("HBO MAX STREAMING SERVICE", "Entertainment & Subscriptions", "debit"),
+    ("NINTENDO ESHOP DIGITAL", "Entertainment & Subscriptions", "debit"),
+    ("PLAYSTATION NETWORK STORE", "Entertainment & Subscriptions", "debit"),
+    ("TRADER JOES GROCERY STORE", "Groceries", "debit"),
+    ("WHOLE FOODS ORGANIC MARKET", "Groceries", "debit"),
+    ("SAFEWAY SUPERMARKET FOOD", "Groceries", "debit"),
+    ("KROGER FRESH GROCERIES", "Groceries", "debit"),
+    ("EXXON MOBIL GAS STATION", "Transport & Travel", "debit"),
+    ("CHEVRON FUEL STOP PETROL", "Transport & Travel", "debit"),
+    ("HIGHWAY GAS STOP DIESEL", "Transport & Travel", "debit"),
+    ("LOCAL GAS STATION SERVO", "Transport & Travel", "debit"),
+    ("CARD PURCHASE FUEL STATION", "Transport & Travel", "debit"),
+    ("OPAL TOP UP TRANSPORT SYDNEY", "Transport & Travel", "debit"),
+    ("CVS PHARMACY HEALTH STORE", "Healthcare & Pharmacy", "debit"),
+    ("WALGREENS HEALTH AND DRUGS", "Healthcare & Pharmacy", "debit"),
+    ("RITE AID PRESCRIPTION PHARMACY", "Healthcare & Pharmacy", "debit"),
+    ("LOCAL HOSPITAL URGENT CARE", "Healthcare & Pharmacy", "debit"),
+    ("MEDICARE REBATE DIRECT CREDIT", "Healthcare & Pharmacy", "credit"),
+    ("AIRBNB RESERVATION BOOKING", "Transport & Travel", "debit"),
+    ("DELTA AIRLINES FLIGHT TICKET", "Transport & Travel", "debit"),
+    ("AMERICAN AIRLINES BOOKING", "Transport & Travel", "debit"),
+    ("HERTZ CAR RENTAL AIRPORT", "Transport & Travel", "debit"),
+    ("ENTERPRISE RENT-A-CAR HIRE", "Transport & Travel", "debit"),
+    ("HILTON HOTEL STAY LODGING", "Transport & Travel", "debit"),
+    ("HOME DEPOT HARDWARE SUPPLIES", "Shopping & Retail", "debit"),
+    ("IKEA FURNITURE HOME STORE", "Shopping & Retail", "debit"),
+    ("COSTCO WHOLESALE WAREHOUSE", "Shopping & Retail", "debit"),
+    ("TARGET DEPARTMENT STORE RETAIL", "Shopping & Retail", "debit"),
+    ("WALMART SUPERCENTER PURCHASE", "Shopping & Retail", "debit"),
+    ("ETSY CRAFTS ONLINE MARKET", "Shopping & Retail", "debit"),
+    ("NIKE STORE SPORTS RETAIL", "Shopping & Retail", "debit"),
+    ("SEPHORA BEAUTY STORE", "Shopping & Retail", "debit"),
+    ("COURSERA ONLINE LEARNING", "Shopping & Retail", "debit"),
+    ("UDEMY ONLINE COURSE EDUCATION", "Shopping & Retail", "debit"),
 ]
 
 

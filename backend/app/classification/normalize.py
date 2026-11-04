@@ -68,18 +68,30 @@ def clean_description(raw_description: str) -> Tuple[str, Optional[str], Optiona
     ref_match = re.search(r"\b(?:REF|REFERENCE|AUTH|RRN|NO|TXN)\s*[:#]?\s*([A-Za-z0-9_-]{4,20})\b", text, re.IGNORECASE)
     if ref_match:
         detected_ref = ref_match.group(1)
+        # Remove the reference token from narrative text so it doesn't pollute classification
+        text = text[:ref_match.start()] + " " + text[ref_match.end():]
 
-    # 3. Strip card masks (e.g. "CARD ... 1234", "XXXX-XXXX-1234", "XXXXXXXXXXXX1234")
+    # 3. Strip synthetic test artifacts, headers and watermarks
+    text = re.sub(r"SYNTHETIC (?:SAMPLE|TEST).*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"FOR SOFTWARE TESTING.*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"TRANSACTION DESCRIPTION.*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"PAGE \d+.*", "", text, flags=re.IGNORECASE)
+
+    # 4. Strip OCR noise characters and trailing artifacts
+    text = re.sub(r"[=_—–|~]+", " ", text)
+
+    # 5. Strip card masks (e.g. "CARD ... 1234", "XXXX-XXXX-1234", "XXXXXXXXXXXX1234")
     text = re.sub(r"\b(?:CARD\s+)?(?:\d{4}|\*{4}|X{4})[- ]?(?:\d{4}|\*{4}|X{4})[- ]?(?:\d{4}|\*{4}|X{4})[- ]?(\d{4})\b", r"CARD \1", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:\*{4,}|X{4,})\d{4}\b", "", text, flags=re.IGNORECASE)
 
-    # 4. Strip long timestamps / transaction IDs (sequences of 8+ digits)
+    # 6. Strip long timestamps / transaction IDs (sequences of 8+ digits)
     text = re.sub(r"\b\d{8,}\b", "", text)
 
-    # 5. Normalize whitespace and uppercase
-    text = re.sub(r"\s+", " ", text).strip().upper()
+    # 7. Normalize whitespace, trim leading/trailing dashes and uppercase
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"^[-–—\s]+|[-–—\s]+$", "", text).strip().upper()
 
-    # 6. Apply merchant aliases
+    # 8. Apply merchant aliases
     for alias, canonical in MERCHANT_ALIASES.items():
         if alias in text:
             text = text.replace(alias, canonical)

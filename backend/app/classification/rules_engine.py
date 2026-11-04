@@ -219,6 +219,106 @@ DEFAULT_RULES: List[ClassificationRule] = [
         priority=18,
         confidence=0.98,
     ),
+    # Rent & Housing
+    ClassificationRule(
+        rule_id="RULE_RENT_AU_01",
+        category="Rent & Housing",
+        subcategory="Rent",
+        keywords=["RENT PAYMENT", "RENT", "HARBOUR PROPERTY", "REAL ESTATE", "MORTGAGE", "BODY CORPORATE", "STRATA", "LANDLORD"],
+        direction="debit",
+        priority=18,
+        confidence=0.98,
+    ),
+    # Transfers In (P2P / Self / PayID)
+    ClassificationRule(
+        rule_id="RULE_TRANS_IN_01",
+        category="Transfers In",
+        subcategory="P2P Transfer",
+        keywords=["PAYID TRANSFER RECEIVED", "PAYID RECEIVED", "PAYID", "OSKO RECEIVED", "TRANSFER FROM", "DIRECT CREDIT PAYID"],
+        direction="credit",
+        priority=18,
+        confidence=0.98,
+    ),
+    # Transfers Out (Savings / P2P)
+    ClassificationRule(
+        rule_id="RULE_TRANS_OUT_01",
+        category="Transfers Out",
+        subcategory="Self Transfer",
+        keywords=["TRANSFER TO SAVINGS", "TRANSFER TO", "NETBANK TRANSFER", "OSKO PAYMENT", "INTERNAL TRANSFER", "FUNDS TRANSFER"],
+        direction="debit",
+        priority=18,
+        confidence=0.98,
+    ),
+    # Refunds & Cashbacks
+    ClassificationRule(
+        rule_id="RULE_REFUND_01",
+        category="Refunds & Cashbacks",
+        subcategory="Merchant Refund",
+        keywords=["REFUND - RETAIL PURCHASE", "RETAIL PURCHASE REFUND", "REFUND", "MERCHANT REFUND", "CASHBACK", "PURCHASE REVERSAL", "REVERSAL"],
+        direction="credit",
+        priority=18,
+        confidence=0.98,
+    ),
+    # Healthcare & Government Rebates
+    ClassificationRule(
+        rule_id="RULE_HEALTH_AU_02",
+        category="Healthcare & Pharmacy",
+        subcategory="Rebate",
+        keywords=["MEDICARE REBATE", "MEDICARE", "CENTRELINK REBATE", "CENTRELINK", "PRIVATE HEALTH REBATE"],
+        direction="credit",
+        priority=18,
+        confidence=0.98,
+    ),
+    # Insurance
+    ClassificationRule(
+        rule_id="RULE_INSUR_01",
+        category="Insurance",
+        subcategory="General Insurance",
+        keywords=["INSURANCE PREMIUM", "INSURANCE", "BUPA", "MEDIBANK", "ALLIANZ", "NRMA", "AAMI", "QBE", "RACV", "AVIVA", "AXA"],
+        direction="debit",
+        priority=18,
+        confidence=0.98,
+    ),
+    # Transit Smartcards & Transport
+    ClassificationRule(
+        rule_id="RULE_TRANS_AU_03",
+        category="Transport & Travel",
+        subcategory="Public Transport",
+        keywords=["OPAL TOP UP", "OPAL", "MYKI", "METROCARD", "TRANSLINK", "TRANSPORT FOR NSW", "SMARTCARD"],
+        direction="debit",
+        priority=18,
+        confidence=0.98,
+    ),
+    # Fuel & Service Stations
+    ClassificationRule(
+        rule_id="RULE_TRANS_AU_04",
+        category="Transport & Travel",
+        subcategory="Fuel",
+        keywords=["FUEL STATION", "SERVICE STATION", "PETROL", "SERVO", "SHELL", "EXXON", "CHEVRON", "MOBIL", "TEXACO", "HIGHWAY GAS STOP", "TRUCK STOP"],
+        direction="debit",
+        priority=16,
+        confidence=0.95,
+    ),
+    # Generic Dining & Cafes
+    ClassificationRule(
+        rule_id="RULE_DINE_03",
+        category="Dining & Restaurants",
+        subcategory="Cafes & Coffee",
+        keywords=["CAFE", "COFFEE", "BAKERY", "ESPRESSO", "ROASTER", "BISTRO", "DINER", "PANERA BREAD", "APPLEBEES", "BURGER KING", "TACO BELL", "CHIPOTLE"],
+        direction="debit",
+        priority=14,
+        confidence=0.92,
+    ),
+    # Global Retail & Superstores
+    ClassificationRule(
+        rule_id="RULE_SHOP_UNI_02",
+        category="Shopping & Retail",
+        subcategory="Online Shopping",
+        keywords=["WALMART", "COSTCO", "HOME DEPOT", "IKEA", "ETSY", "ALIEXPRESS", "NIKE", "SEPHORA", "WAYFAIR", "ZARA", "BARNES & NOBLE"],
+        direction="debit",
+        priority=12,
+        confidence=0.92,
+    ),
 ]
 
 
@@ -244,7 +344,8 @@ class RuleEngine:
             for kw in rule.keywords:
                 # Use regex word boundary check where possible
                 escaped = re.escape(kw)
-                if re.search(rf"\b{escaped}\b", upper_desc):
+                pattern = rf"(?<!\w){escaped}(?!\w)"
+                if re.search(pattern, upper_desc):
                     matched_keywords.append(kw)
 
             if matched_keywords:

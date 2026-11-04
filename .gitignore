@@ -48,3 +48,6 @@ data/uploads/*
 .vscode/
 .idea/
 *.swp
+
+synthetic_fraud_data.csv
+*.csv
